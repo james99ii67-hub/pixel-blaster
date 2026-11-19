@@ -473,6 +473,45 @@
   let boss, stageEntry;
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  // followX is the ordinary side-scrolling view before framing the boss arena.
+  let followX, previousPlayerX, baseViewWidth, lastViewWidth;
+  const portraitWidth = 352;
+  const normalViewWidth = () => portrait.matches && !(reduceMotion && level.arena) ? portraitWidth : width;
+
+  function resetCamera() {
+    previousPlayerX = player.x;
+    baseViewWidth = normalViewWidth();
+    followX = clamp(player.x - baseViewWidth * 0.35, 0, level.width - baseViewWidth);
+    camera = followX;
+  }
+
+  function frameCamera(x) {
+    const rightMargin = baseViewWidth * 0.42;
+    const leftMargin = baseViewWidth * 0.28;
+    // The view moves only as the player pushes an edge of this horizontal band.
+    followX = clamp(clamp(followX, x - rightMargin, x - leftMargin), 0, level.width - baseViewWidth);
+    let viewWidth = baseViewWidth;
+    camera = followX;
+    if (level.arena) {
+      const { start, gate } = level.arena;
+      // Frame the whole arena during the approach, so the trigger itself never cuts the shot.
+      const approachLength = 480;
+      const entryX = start - rightMargin - approachLength;
+      const approach = clamp((followX - entryX) / approachLength, 0, 1);
+      const blend = approach * approach * (3 - 2 * approach);
+      viewWidth += (width - viewWidth) * blend;
+      const arenaX = start - 27 + Math.max(0, x - gate);
+      if (approach > 0) {
+        // Match the incoming scroll speed and arrive at the locked view at zero speed.
+        camera = entryX + (arenaX - entryX) * blend + approachLength * approach * (1 - approach) ** 2;
+      }
+    }
+    camera = clamp(camera, 0, level.width - viewWidth);
+    if (portrait.matches && viewWidth !== lastViewWidth) {
+      canvas.style.setProperty("--view-scale", `${width / viewWidth * 100}%`);
+    }
+    lastViewWidth = portrait.matches ? viewWidth : undefined;
+  }
   const intersects = (a, b) =>
     a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
@@ -542,7 +581,7 @@
     enemies = enemies.filter(enemy => !beaten.has(enemy.id));
     if (boss && beaten.has(boss.id)) boss.hp = 0;
     player.x = player.respawn = r.floor;
-    camera = clamp(player.x - width * 0.35, 0, level.width - width);
+    resetCamera();
     updateWeapons();
     updateHud();
     updateProgress();
@@ -675,7 +714,7 @@
     unlockUntil = 0;
     supplyMessage.hidden = true;
     particles = [];
-    camera = 0;
+    resetCamera();
     shotIndex = 0;
     time = 0;
     state = "playing";
@@ -934,11 +973,12 @@
     } else {
       Object.assign(player, { x: player.respawn, y: groundY - player.h, vx: 0,
         vy: 0, grounded: true, grace: 0 });
-      camera = clamp(player.x - width * 0.35, 0, level.width - width);
+      resetCamera();
     }
   }
 
   function update(dt) {
+    previousPlayerX = player.x;
     time += dt;
     const movement = Number(held("right")) - Number(held("left"));
     if (movement) player.facing = movement;
@@ -1044,9 +1084,6 @@
     updateSupplyMessage();
     updateProgress();
     if (pendingSave) saveRun();
-    const targetCamera = arenaActive ? level.arena.start - 27
-      : clamp(player.x - width * 0.35, 0, level.width - width);
-    camera += (targetCamera - camera) * Math.min(1, dt * 8);
   }
 
   function updateSupplyMessage() {
@@ -1490,7 +1527,7 @@
     rect(0, 0, width, height, "#80d0f3");
     rect(0, 82, width, 54, "#8dd9f6");
     rect(0, 136, width, 134, "#a9e4f8");
-    const sun = 365 - camera * 0.07;
+    const sun = 365 - Math.round(camera * 0.07);
     if (level.theme === "valley") {
       rect(sun - 15, 35, 30, 48, "#f5daff");
       rect(sun - 22, 43, 45, 32, "#f5daff");
@@ -1517,21 +1554,21 @@
       rect(433, 103, 30, 2, "#c2edfa");
     }
     clouds.forEach(([x, y, scale]) => {
-      const px = x - camera * 0.25;
+      const px = x - Math.round(camera * 0.25);
       if (px > -115 && px < width) cloud(px, y, scale);
     });
     mountains.forEach(([x, base, w, h]) => {
-      const px = x - camera * 0.21;
+      const px = x - Math.round(camera * 0.21);
       if (px + w > -10 && px < width) mountain(px, base, w, h);
     });
     hills.forEach(([x, base, w, h], index) => {
-      const px = x - camera * 0.49;
+      const px = x - Math.round(camera * 0.49);
       if (px + w > -10 && px < width) hill(px, base, w, h, index % 2 === 0);
     });
     const firstTree = Math.max(0, Math.floor((camera * 0.66 - 55) / 69));
     for (let index = firstTree; index < firstTree + 9; index++) {
       if (index % 5 === 2) continue;
-      const x = 31 + index * 69 + (index % 3) * 12 - camera * 0.66;
+      const x = 31 + index * 69 + (index % 3) * 12 - Math.round(camera * 0.66);
       if (x >= width + 23) continue;
       const y = 220 - (index % 3) * 3;
       if (level.theme === "meadow") tree(x, y, index % 2);
@@ -1835,10 +1872,10 @@
     for (let y = 117; y < groundY; y += 18) sparkle(x + 5, y, "#b75260", 3);
   }
 
-  function adventurer() {
+  function adventurer(drawX) {
     if (player.immunity > 0) {
       // A continuous two-tone shield keeps the sprite readable throughout immunity.
-      const x = Math.round(player.x + player.w / 2), y = Math.round(player.y + 10);
+      const x = drawX + player.w / 2, y = Math.round(player.y + 10);
       ctx.save();
       ctx.beginPath();
       ctx.ellipse(x, y, 15, 19, 0, 0, Math.PI * 2);
@@ -1861,7 +1898,7 @@
     const stride = running && !reduceMotion ? Math.floor(time * 14) % 2 : 0;
     const bob = running && !reduceMotion ? stride : 0;
     ctx.save();
-    ctx.translate(Math.round(player.x + (player.facing < 0 ? player.w : 0)), Math.round(player.y) - bob);
+    ctx.translate(drawX + (player.facing < 0 ? player.w : 0), Math.round(player.y) - bob);
     ctx.scale(player.facing, 1);
 
     rect(-3, 10, 6, 10, ink);
@@ -1991,12 +2028,10 @@
     sparkle(toX, toY, "#ccffff", 4);
   }
 
-  function render() {
-    if (portrait.matches && screen.dataset.arena !== "true") {
-      // Crop the presentation only. AI, collisions and camera logic use the full 480px world view.
-      const offset = Math.round(clamp(player.x - camera - 352 * 0.35, 0, width - 352));
-      canvas.style.setProperty("--pan", `${-100 * offset / width}%`);
-    }
+  function render(alpha = 1) {
+    if (normalViewWidth() !== baseViewWidth) resetCamera();
+    const drawX = previousPlayerX + (player.x - previousPlayerX) * alpha;
+    frameCamera(drawX);
     terrainPalette = sceneryPalettes[level.theme];
     scenery();
     ctx.save();
@@ -2014,7 +2049,7 @@
     terrainPalette = undefined;
     if (boss?.hp > 0 && boss.mode !== "dormant") barrageGuide();
     bricks.forEach(brickArt);
-    if (camera < 40) sign(27);
+    if (camera < 50) sign(27);
     if (boss?.hp > 0 && camera + width > level.arena.gate) sealArt(level.arena.gate);
     if (camera + width > level.goal - 40) flag();
     gems.forEach(gem => {
@@ -2040,7 +2075,7 @@
         sparkle(shot.x + 3, shot.y + 3, shot.color, 3);
       }
     }
-    adventurer();
+    adventurer(Math.round(drawX - camera) + Math.round(camera));
     for (const particle of particles) {
       rect(particle.x, particle.y, particle.life > 0.16 ? 3 : 2, 2, particle.color);
     }
@@ -2056,7 +2091,8 @@
       accumulator -= step;
     }
     sound.scheduleMusic();
-    render();
+    if (state !== "playing" || menuOpen()) previousPlayerX = player.x;
+    render(accumulator / step);
     requestAnimationFrame(frame);
   }
 

@@ -168,10 +168,8 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
 #boss-warning { color: #fff; display: block; text-align: left; line-height: 1.3; font-size: .9rem; }
 #screen[data-protected="true"] .hearts { outline: 1px solid #8df1e6; outline-offset: 2px; }
 @media (orientation: portrait) and (any-pointer: coarse) and (max-width: 600px) {
-  .screen { aspect-ratio: 352/270; overflow: hidden; }
-  .screen canvas { position: absolute; width: 136.36364%; height: auto; transform: translateX(var(--pan,0%)); }
-  .screen[data-arena="true"] canvas { width: 100%; top: 50%; transform: translateY(-50%); }
-  .screen[data-arena="true"] { background: var(--ink); }
+  .screen { aspect-ratio: 352/270; overflow: hidden; background: var(--ink); }
+  .screen canvas { position: absolute; left: 0; top: 50%; width: var(--view-scale,136.36364%); height: auto; transform: translateY(-50%); }
   .screen[data-arena="true"] #boss-hud { top: 1px; right: 2px; left: auto; transform: none; width: calc(100% - 112px); }
 }
 
