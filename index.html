@@ -5,90 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#fbf6e9">
   <title>Pixel Blaster｜晴光草原</title>
-  <link rel="stylesheet" href="style.css?v=9">
-  <script src="game.js?v=9" defer></script>
+  <link rel="stylesheet" href="style.css?v=10">
+  <script src="game.js?v=10" defer></script>
 </head>
 <body>
   <main class="arcade">
     <header class="masthead">
-      <div>
-        <h1>PIXEL <span>BLASTER</span><b aria-hidden="true">✦</b></h1>
-        <p class="subtitle"><span id="level-number" lang="en">LEVEL 01</span> <b id="level-name">晴光草原</b></p>
-      </div>
-      <div class="game-settings">
-        <button id="music" class="restart" type="button" aria-label="背景音樂" title="切換背景音樂" aria-pressed="true">♫ 音樂開</button>
-        <button id="sound" class="restart" type="button" aria-label="遊戲音效" aria-pressed="true">♪ 音效開</button>
-        <button id="restart" class="restart" type="button"><span aria-hidden="true">↻</span> 重新開始</button>
-      </div>
+      <h1>PIXEL <span>BLASTER</span></h1>
+      <div class="stage"><span id="level-number" lang="en">LEVEL 01</span><b id="level-name">晴光草原</b></div>
+      <button id="settings-toggle" class="gear" type="button" aria-label="遊戲設定" aria-haspopup="dialog" aria-controls="settings-panel"><span aria-hidden="true">⚙︎</span></button>
     </header>
-
     <section class="machine" aria-label="Pixel Blaster 遊戲區">
       <div class="screen">
-        <canvas id="game" width="480" height="270" aria-label="Pixel Blaster 遊戲畫面" aria-describedby="controls goal">
-          你的瀏覽器需要支援 HTML5 Canvas 才能遊玩。
-        </canvas>
+        <canvas id="game" width="480" height="270" aria-label="Pixel Blaster 遊戲畫面" aria-describedby="controls goal">你的瀏覽器需要支援 HTML5 Canvas 才能遊玩。</canvas>
         <div class="hud">
-          <div class="hud-box">
-            <span class="hud-label">生命</span>
-            <span id="health" class="hearts" role="img" aria-label="3 / 3 點生命">
-              <i class="heart"></i><i class="heart"></i><i class="heart"></i>
-            </span>
-          </div>
-          <div class="hud-box score-box">
-            <span class="hud-label">分數</span>
-            <span id="score">0000</span>
-          </div>
+          <span id="health" class="hearts" role="img" aria-label="3 / 3 點生命"><i></i><i></i><i></i></span>
+          <span class="score-box"><i aria-hidden="true">✦</i><span class="sr-only">分數</span><b id="score">0000</b></span>
         </div>
-        <p id="supply-message" class="supply-message" hidden></p>
-        <div id="boss-hud" class="boss-hud" hidden>
-          <div class="boss-label">
-            <span id="boss-name">熔核巨像</span>
-            <span id="boss-warning"></span>
-          </div>
+        <p id="supply-message" hidden></p>
+        <div id="boss-hud" hidden>
+          <div class="boss-label"><span id="boss-name">熔核巨像</span><span id="boss-warning"></span></div>
           <progress id="boss-health" aria-labelledby="boss-name" max="120" value="120"></progress>
         </div>
         <div id="result" class="result" hidden>
-          <div class="result-card">
-            <span class="result-star" aria-hidden="true">✦</span>
-            <h2 id="result-title" tabindex="-1"></h2>
-            <p id="result-detail"></p>
+          <div class="card result-card">
+            <h2 id="result-title" tabindex="-1"></h2><p id="result-detail"></p>
             <div class="result-actions">
-              <button id="next-level" class="restart" type="button" hidden>下一關 <span aria-hidden="true">→</span></button>
-              <button id="retry-level" class="restart" type="button" hidden>重試本關</button>
-              <button id="replay" class="restart" type="button">再玩一次 <span aria-hidden="true">↻</span></button>
+              <button id="next-level" type="button" hidden>下一關</button>
+              <button id="retry-level" type="button" hidden>重試本關</button>
+              <button id="replay" type="button">再玩一次</button>
             </div>
           </div>
         </div>
       </div>
       <div id="controls" class="control-strip">
-        <div class="keyboard-guide">
-          <span><kbd>←</kbd> <kbd>→</kbd> 移動</span>
-          <span><kbd>SPACE</kbd> 跳躍</span>
-          <span><kbd>X</kbd> 發射</span>
-        </div>
         <div class="touch-controls" role="group" aria-label="觸控操作">
           <div class="touch-move">
-            <button type="button" data-action="left" aria-label="向左移動">◀</button>
-            <button type="button" data-action="right" aria-label="向右移動">▶</button>
+            <button type="button" data-action="left" aria-label="向左移動"><i aria-hidden="true"></i></button>
+            <button type="button" data-action="right" aria-label="向右移動"><i aria-hidden="true"></i></button>
           </div>
           <div class="touch-action">
-            <button type="button" data-action="jump"><span aria-hidden="true">▲</span> 跳躍</button>
-            <button type="button" data-action="fire"><span aria-hidden="true">✦</span> 發射</button>
+            <button type="button" data-action="jump"><i aria-hidden="true"></i>跳躍</button>
+            <button type="button" data-action="fire"><i aria-hidden="true"></i>射擊</button>
           </div>
         </div>
-        <div class="weapon-select" role="group" aria-label="選擇武器">
-          <button type="button" data-weapon="0" aria-label="彩虹彈 (1)" aria-pressed="true" title="連射彩虹彈"><kbd>1</kbd> 彩虹彈</button>
-          <button type="button" data-weapon="1" aria-label="星花散彈 (2)" aria-pressed="false" title="頂開補給磚解鎖星花散彈" disabled><kbd>2</kbd> 散彈</button>
-          <button type="button" data-weapon="2" aria-label="晶光穿透槍 (3)" aria-pressed="false" title="頂開補給磚解鎖晶光穿透槍" disabled><kbd>3</kbd> 穿透</button>
-          <button type="button" data-weapon="3" aria-label="神器閃電槍 (4)" aria-pressed="false" title="神器閃電槍：按住發射，最多連鎖五個目標" disabled><kbd>4</kbd> 閃電</button>
-          <button type="button" data-weapon="4" aria-label="噴火槍 (5)" aria-pressed="false" title="頂開補給磚解鎖噴火槍" disabled><kbd>5</kbd> 噴火</button>
-          <button type="button" data-weapon="5" aria-label="火焰雷射槍 (6)" aria-pressed="false" title="頂開神器磚解鎖火焰雷射槍" disabled><kbd>6</kbd> 雷射</button>
-        </div>
+        <div class="keyboard-guide"><span><kbd>←</kbd> <kbd>→</kbd> 移動</span><span><kbd>SPACE</kbd> 跳躍</span><span><kbd>X</kbd> 射擊</span></div>
+        <button id="weapon-toggle" class="loadout" type="button" aria-haspopup="dialog" aria-controls="weapon-panel" title="切換武器">
+          <i class="gun" aria-hidden="true"></i><span id="equipped">彩虹彈</span><span class="switch-label">切換</span>
+        </button>
       </div>
     </section>
-    <!-- site-account -->
-    <p id="goal" class="sr-only">一路向右抵達旗幟。從補給磚下方跳起可解鎖武器。</p>
+    <p id="goal" class="sr-only">一路向右抵達旗幟。從磚頭下方跳起可解鎖武器。</p>
     <div id="announce" class="sr-only" role="status"></div>
   </main>
+  <dialog id="settings-panel" aria-labelledby="settings-title">
+    <div class="panel-heading"><h2 id="settings-title">遊戲設定</h2><button class="close" type="button" data-close aria-label="關閉設定">×</button></div>
+    <div class="settings-list">
+      <button id="music" type="button" aria-label="背景音樂" aria-pressed="true">♫ 音樂開</button>
+      <button id="sound" type="button" aria-label="遊戲音效" aria-pressed="true">♪ 音效開</button>
+      <button id="restart" type="button">重新開始</button>
+    </div>
+    <!-- site-account -->
+  </dialog>
+  <dialog id="weapon-panel" aria-labelledby="weapon-title">
+    <div class="panel-heading"><h2 id="weapon-title">切換武器</h2><button class="close" type="button" data-close aria-label="關閉武器清單">×</button></div>
+    <div class="weapon-select" role="group" aria-label="選擇武器">
+      <button type="button" data-weapon="0" aria-pressed="true"><kbd>1</kbd> 彩虹彈</button>
+      <button type="button" data-weapon="1" aria-pressed="false" disabled><kbd>2</kbd> 星花散彈</button>
+      <button type="button" data-weapon="2" aria-pressed="false" disabled><kbd>3</kbd> 晶光穿透槍</button>
+      <button type="button" data-weapon="3" aria-pressed="false" disabled><kbd>4</kbd> 閃電槍</button>
+      <button type="button" data-weapon="4" aria-pressed="false" disabled><kbd>5</kbd> 噴火槍</button>
+      <button type="button" data-weapon="5" aria-pressed="false" disabled><kbd>6</kbd> 火焰雷射槍</button>
+    </div>
+  </dialog>
+  <dialog id="restart-panel" aria-labelledby="restart-title" aria-describedby="restart-detail">
+    <h2 id="restart-title">從第一關重新開始？</h2>
+    <p id="restart-detail">這次冒險的分數與進度會重設。</p>
+    <div class="result-actions"><button id="cancel-restart" type="button" autofocus>取消</button><button id="confirm-restart" type="button">重新開始</button></div>
+  </dialog>
 </body>
 </html>

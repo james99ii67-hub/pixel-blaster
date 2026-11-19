@@ -443,6 +443,15 @@
   const weaponButtons = [...document.querySelectorAll("[data-weapon]")];
   const supplyMessage = document.querySelector("#supply-message");
   const announce = document.querySelector("#announce");
+  const equipped = document.querySelector("#equipped");
+  const weaponToggle = document.querySelector("#weapon-toggle");
+  const settingsToggle = document.querySelector("#settings-toggle");
+  const settingsPanel = document.querySelector("#settings-panel");
+  const weaponPanel = document.querySelector("#weapon-panel");
+  const restartPanel = document.querySelector("#restart-panel");
+  const panels = [settingsPanel, weaponPanel, restartPanel];
+  let restartOrigin;
+  const menuOpen = () => panels.some(panel => panel.open);
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let player, enemies, gems, shots, particles, camera, score, health, state;
@@ -479,8 +488,11 @@
   }
 
   function updateWeapons() {
+    equipped.textContent = weapons[weaponIndex].name;
+    weaponToggle.setAttribute("aria-label", `目前裝備${equipped.textContent}，切換武器`);
     weaponButtons.forEach((button, i) => {
       button.disabled = !unlocked.has(i);
+      button.setAttribute("aria-label", `${i + 1} · ${weapons[i].name}${button.disabled ? "，尚未解鎖" : ""}`);
       button.setAttribute("aria-pressed", String(i === weaponIndex));
     });
   }
@@ -592,10 +604,10 @@
   }
 
   window.addEventListener("keydown", event => {
-    if (event.ctrlKey || event.altKey || event.metaKey || event.target.closest?.("select, a")) return;
+    if (menuOpen() || event.ctrlKey || event.altKey || event.metaKey || event.target.closest?.("select, a")) return;
     if (event.code === "KeyR" && !event.repeat) {
       sound.unlock();
-      reset(true);
+      requestRestart();
       return;
     }
     if (/^(Digit|Numpad)[1-6]$/.test(event.code)) {
@@ -607,8 +619,10 @@
     const action = keyActions[event.code];
     if (!action || state !== "playing") return;
     if (event.code === "Space" && event.target.closest?.("button")) return;
+    if (event.target.closest?.("button")) canvas.focus({ preventScroll: true });
     event.preventDefault();
     sound.unlock();
+    if (event.repeat && !keys.has(event.code)) return;
     if (action === "jump" && !keys.has(event.code)) jumpBuffer = 0.13;
     keys.add(event.code);
   });
@@ -621,28 +635,74 @@
     if (document.hidden) clearInputs();
   });
 
+  window.addEventListener("pagehide", clearInputs);
+  window.addEventListener("orientationchange", clearInputs);
+
+  function releaseTouch(event) {
+    const button = pointers.get(event.pointerId);
+    if (!button) return;
+    pointers.delete(event.pointerId);
+    button.classList.toggle("pressed", [...pointers.values()].includes(button));
+    if (event.type === "pointercancel" && button.dataset.action === "jump" && !held("jump")) jumpBuffer = 0;
+  }
   for (const button of touchButtons) {
     button.addEventListener("pointerdown", event => {
-      if (event.button !== 0 || state !== "playing") return;
+      if (event.button !== 0 || state !== "playing" || menuOpen()) return;
       event.preventDefault();
       sound.unlock();
-      button.setPointerCapture(event.pointerId);
+      // Window-level release also covers browsers that lose capture during rotation.
+      if (button.isConnected) button.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, button);
       button.classList.add("pressed");
       if (button.dataset.action === "jump") jumpBuffer = 0.13;
     });
 
-    function release(event) {
-      pointers.delete(event.pointerId);
-      button.classList.toggle("pressed", [...pointers.values()].includes(button));
-    }
-    button.addEventListener("pointerup", event => { sound.unlock(); release(event); });
-    button.addEventListener("pointercancel", release);
-    button.addEventListener("lostpointercapture", release);
+    button.addEventListener("pointerup", event => { sound.unlock(); releaseTouch(event); });
+    button.addEventListener("pointercancel", releaseTouch);
+    button.addEventListener("lostpointercapture", event => {
+      if (pointers.get(event.pointerId) === button) releaseTouch(event);
+    });
     button.addEventListener("contextmenu", event => event.preventDefault());
   }
-  document.querySelector("#restart").addEventListener("click", () => reset(true));
-  replay.addEventListener("click", () => reset(true));
+  window.addEventListener("pointerup", releaseTouch);
+  window.addEventListener("pointercancel", releaseTouch);
+
+  function openPanel(panel) {
+    clearInputs();
+    for (const other of panels) if (other.open) other.close();
+    panel.showModal();
+  }
+  function requestRestart() {
+    restartOrigin = settingsPanel.open ? settingsPanel : null;
+    openPanel(restartPanel);
+  }
+  function cancelRestart() {
+    restartPanel.close();
+    if (restartOrigin) openPanel(restartOrigin);
+  }
+  settingsToggle.addEventListener("click", () => openPanel(settingsPanel));
+  weaponToggle.addEventListener("click", () => openPanel(weaponPanel));
+  for (const close of document.querySelectorAll("[data-close]")) {
+    close.addEventListener("click", () => close.closest("dialog").close());
+  }
+  for (const panel of panels) {
+    panel.addEventListener("click", event => {
+      if (event.target !== panel) return;
+      const box = panel.getBoundingClientRect();
+      if (event.clientX >= box.left && event.clientX <= box.right &&
+          event.clientY >= box.top && event.clientY <= box.bottom) return;
+      if (panel === restartPanel) cancelRestart();
+      else panel.close();
+    });
+  }
+  restartPanel.addEventListener("cancel", event => { event.preventDefault(); cancelRestart(); });
+  document.querySelector("#restart").addEventListener("click", requestRestart);
+  replay.addEventListener("click", requestRestart);
+  document.querySelector("#cancel-restart").addEventListener("click", cancelRestart);
+  document.querySelector("#confirm-restart").addEventListener("click", () => {
+    restartPanel.close();
+    reset(true);
+  });
   if (testLevel) {
     levels.forEach((level, index) => testLevel.add(new Option(`${index + 1} · ${level.name}`, String(index))));
     testLevel.addEventListener("change", () => {
@@ -650,6 +710,7 @@
       if (!Number.isInteger(index) || !levels[index]) return;
       health = maxHealth;
       score = 0;
+      if (settingsPanel.open) settingsPanel.close();
       startLevel(index, true);
     });
   }
@@ -661,6 +722,7 @@
   weaponButtons.forEach((button, index) => {
     button.addEventListener("click", () => {
       selectWeapon(index);
+      if (weaponPanel.open) weaponPanel.close();
       if (state === "playing") canvas.focus({ preventScroll: true });
     });
   });
@@ -1796,7 +1858,7 @@
     accumulator += Math.min((timestamp - previousTime) / 1000, 0.065);
     previousTime = timestamp;
     while (accumulator >= step) {
-      if (state === "playing") update(step);
+      if (state === "playing" && !menuOpen()) update(step);
       accumulator -= step;
     }
     sound.scheduleMusic();
