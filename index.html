@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#fbf6e9">
   <title>Pixel Blaster｜晴光草原</title>
-  <link rel="stylesheet" href="style.css?v=10">
-  <script src="game.js?v=10" defer></script>
+  <link rel="stylesheet" href="style.css?v=11">
+  <script src="game.js?v=11" defer></script>
 </head>
 <body>
   <main class="arcade">
@@ -16,15 +16,17 @@
       <button id="settings-toggle" class="gear" type="button" aria-label="遊戲設定" aria-haspopup="dialog" aria-controls="settings-panel"><span aria-hidden="true">⚙︎</span></button>
     </header>
     <section class="machine" aria-label="Pixel Blaster 遊戲區">
-      <div class="screen">
+      <div class="screen" id="screen">
         <canvas id="game" width="480" height="270" aria-label="Pixel Blaster 遊戲畫面" aria-describedby="controls goal">你的瀏覽器需要支援 HTML5 Canvas 才能遊玩。</canvas>
         <div class="hud">
           <span id="health" class="hearts" role="img" aria-label="3 / 3 點生命"><i></i><i></i><i></i></span>
           <span class="score-box"><i aria-hidden="true">✦</i><span class="sr-only">分數</span><b id="score">0000</b></span>
+          <progress id="stage-progress" max="100" value="0" aria-label="到終點的進度" title="到終點的進度"></progress>
         </div>
         <p id="supply-message" hidden></p>
         <div id="boss-hud" hidden>
-          <div class="boss-label"><span id="boss-name">熔核巨像</span><span id="boss-warning"></span></div>
+          <div class="boss-label"><span id="boss-name">熔核巨像</span><span id="boss-phase"></span></div>
+          <strong id="boss-warning" role="status"></strong>
           <progress id="boss-health" aria-labelledby="boss-name" max="120" value="120"></progress>
         </div>
         <div id="result" class="result" hidden>
@@ -60,9 +62,12 @@
   </main>
   <dialog id="settings-panel" aria-labelledby="settings-title">
     <div class="panel-heading"><h2 id="settings-title">遊戲設定</h2><button class="close" type="button" data-close aria-label="關閉設定">×</button></div>
+    <p class="record">最高分 <b id="best-score">0</b></p>
+    <p id="storage-notice" hidden role="status">瀏覽器目前無法儲存，進度僅保留到本頁關閉。</p>
     <div class="settings-list">
       <button id="music" type="button" aria-label="背景音樂" aria-pressed="true">♫ 音樂開</button>
       <button id="sound" type="button" aria-label="遊戲音效" aria-pressed="true">♪ 音效開</button>
+      <button id="show-guide" type="button">新手引導</button>
       <button id="restart" type="button">重新開始</button>
     </div>
     <!-- site-account -->
@@ -77,6 +82,15 @@
       <button type="button" data-weapon="4" aria-pressed="false" disabled><kbd>5</kbd> 噴火槍</button>
       <button type="button" data-weapon="5" aria-pressed="false" disabled><kbd>6</kbd> 火焰雷射槍</button>
     </div>
+  </dialog>
+  <dialog id="guide-panel" aria-labelledby="guide-title">
+    <div class="guide-step" id="guide-step"></div>
+    <h2 id="guide-title"></h2><p id="guide-tip"></p>
+    <div class="result-actions"><button id="skip-guide" type="button">跳過引導</button><button id="advance-guide" type="button" autofocus>下一步</button></div>
+  </dialog>
+  <dialog id="continue-panel" aria-labelledby="continue-title">
+    <h2 id="continue-title">繼續冒險</h2><p id="save-detail"></p>
+    <div class="result-actions"><button id="continue-game" type="button" autofocus>繼續遊戲</button><button id="new-game" type="button">從頭開始</button></div>
   </dialog>
   <dialog id="restart-panel" aria-labelledby="restart-title" aria-describedby="restart-detail">
     <h2 id="restart-title">從第一關重新開始？</h2>

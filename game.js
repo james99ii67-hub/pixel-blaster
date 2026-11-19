@@ -449,7 +449,19 @@
   const settingsPanel = document.querySelector("#settings-panel");
   const weaponPanel = document.querySelector("#weapon-panel");
   const restartPanel = document.querySelector("#restart-panel");
-  const panels = [settingsPanel, weaponPanel, restartPanel];
+  const guidePanel = document.querySelector("#guide-panel");
+  const guideTitle = document.querySelector("#guide-title");
+  const guideTip = document.querySelector("#guide-tip");
+  const guideStep = document.querySelector("#guide-step");
+  const guideNext = document.querySelector("#advance-guide");
+  const continuePanel = document.querySelector("#continue-panel");
+  const bestLabel = document.querySelector("#best-score");
+  const storageNotice = document.querySelector("#storage-notice");
+  const stageProgress = document.querySelector("#stage-progress");
+  const screen = document.querySelector("#screen");
+  const bossPhase = document.querySelector("#boss-phase");
+  const portrait = matchMedia("(orientation: portrait) and (any-pointer: coarse) and (max-width: 600px)");
+  const panels = [settingsPanel, weaponPanel, restartPanel, guidePanel, continuePanel];
   let restartOrigin;
   const menuOpen = () => panels.some(panel => panel.open);
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -463,6 +475,109 @@
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const intersects = (a, b) =>
     a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  // A run records game state at a ground checkpoint. Account identity is never
+  // part of a key or value. The server-rendered tester UI selects a separate slot.
+  const slot = testLevel ? "pixel-blaster.practice." : "pixel-blaster.play.";
+  function readLocal(key) {
+    try { return JSON.parse(window.localStorage.getItem(slot + key)); }
+    catch { return null; }
+  }
+  function writeLocal(key, value) {
+    try { window.localStorage.setItem(slot + key, JSON.stringify(value)); }
+    catch { storageNotice.hidden = false; }
+  }
+  const integer = (n, low, high) => Number.isSafeInteger(n) && n >= low && n <= high;
+  const idsValid = (ids, count) => Array.isArray(ids) && ids.length <= count &&
+    ids.every(id => integer(id, 0, count - 1)) && new Set(ids).size === ids.length;
+  function readRun() {
+    const r = readLocal("run");
+    if (r?.v !== 1 || !integer(r.stage, 0, levels.length - 1)) return null;
+    const map = levels[r.stage];
+    if (!integer(r.score, 0, Number.MAX_SAFE_INTEGER) || !integer(r.base, 0, r.score) ||
+        !integer(r.hp, 1, maxHealth) || !idsValid(r.guns, weapons.length) ||
+        !r.guns.includes(0) || !r.guns.includes(r.weapon) ||
+        !idsValid(r.picked, map.gems.length) || !idsValid(r.beaten, map.enemies.length + Number(!!map.arena)) ||
+        !map.platforms.some(([x,y]) => y === groundY && Math.max(64, x + 13) === r.floor)) return null;
+    return r;
+  }
+
+  let savedRun = readRun();
+  let allowSave = false, pendingSave = false;
+  let picked, beaten;
+  const storedBest = readLocal("best");
+  let best = integer(storedBest, 0, Number.MAX_SAFE_INTEGER) ? storedBest : 0;
+  function recordBest() {
+    if (score <= best) return;
+    const other = readLocal("best");
+    best = Math.max(score, integer(other, 0, Number.MAX_SAFE_INTEGER) ? other : 0);
+    writeLocal("best", best);
+    bestLabel.textContent = String(best);
+  }
+  function checkpoint(stage, base, hp) {
+    return { v: 1, stage, base, score: base, hp, guns: [...unlocked], weapon: weaponIndex,
+      floor: 64, picked: [], beaten: [] };
+  }
+  function saveRun() {
+    if (!allowSave || state !== "playing") return;
+    writeLocal("run", { ...checkpoint(levelIndex, stageEntry.score, health),
+      score, floor: player.respawn, picked: [...picked], beaten: [...beaten] });
+    pendingSave = false;
+  }
+  function resumeRun() {
+    if (!savedRun) return;
+    const r = savedRun;
+    savedRun = null;
+    continuePanel.close();
+    allowSave = true;
+    score = r.base;
+    health = r.hp;
+    unlocked = testLevel ? new Set(weapons.keys()) : new Set(r.guns);
+    weaponIndex = r.weapon;
+    startLevel(r.stage, true);
+    score = r.score;
+    picked = new Set(r.picked);
+    beaten = new Set(r.beaten);
+    gems = gems.filter(gem => !picked.has(gem.id));
+    enemies = enemies.filter(enemy => !beaten.has(enemy.id));
+    if (boss && beaten.has(boss.id)) boss.hp = 0;
+    player.x = player.respawn = r.floor;
+    camera = clamp(player.x - width * 0.35, 0, level.width - width);
+    updateWeapons();
+    updateHud();
+    updateProgress();
+    saveRun();
+  }
+
+  const guideSteps = [
+    ["移動", "按住左側的方向鍵，朝右邊的旗幟前進。鍵盤可用 ← → 或 A、D。"],
+    ["跳躍", "點右側「跳躍」或按空白鍵。按住方向再跳，就能越過缺口。"],
+    ["發射", "按住「射擊」或 X，朝面向的方向持續發射。移動和跳躍時也能射擊。"],
+    ["補給磚", "站到補給磚正下方，跳起用頭頂它。新武器會自動裝備，點「切換」可查看武器清單。"]
+  ];
+  let guideIndex = 0;
+  function drawGuide() {
+    guideStep.textContent = `新手引導 · ${guideIndex + 1} / ${guideSteps.length}`;
+    [guideTitle.textContent, guideTip.textContent] = guideSteps[guideIndex];
+    guideNext.textContent = guideIndex === guideSteps.length - 1 ? "開始遊玩" : "下一步";
+  }
+  function showGuide() {
+    guideIndex = 0;
+    drawGuide();
+    openPanel(guidePanel);
+  }
+  function leaveGuide() {
+    guidePanel.close();
+    writeLocal("guideSeen", true);
+    allowSave = true;
+    saveRun();
+    canvas.focus({ preventScroll: true });
+  }
+  function updateProgress() {
+    const percent = state === "cleared" || state === "won" ? 100 :
+      clamp(Math.floor((player.x - 64) * 100 / (level.goal - player.w - 64)), 0, 99);
+    if (stageProgress.value !== percent) stageProgress.value = percent;
+  }
 
   function announceStatus(message) {
     announce.textContent = message;
@@ -504,6 +619,7 @@
     beam = null;
     arcs = [];
     updateWeapons();
+    saveRun();
     announceStatus(`已切換至${weapons[index].name}`);
   }
 
@@ -525,7 +641,12 @@
     level = levels[index];
     sound.setTrack(level.theme);
     if (testLevel) testLevel.value = String(index);
-    stageEntry = { score, unlocked: new Set(unlocked), weaponIndex };
+    stageEntry = { score };
+    picked = new Set();
+    beaten = new Set();
+    pendingSave = false;
+    screen.dataset.protected = "false";
+    screen.dataset.arena = "false";
     platforms = level.platforms.map(([x, y, w]) => ({ x, y, w }));
     const ground = platforms.filter(platform => platform.y === groundY);
     bricks = level.supplies.map(([x, y, weapon]) => ({ x, y, weapon, w: 25, h: 16, bump: 0 }));
@@ -535,19 +656,19 @@
       grounded: true, grace: 0, cooldown: 0, immunity: 0, respawn: 64 };
     enemies = level.enemies.map(([x, left, right, speed, color, floor = groundY, type = "slime"], index) => {
       const stats = enemyTypes[type];
-      return { ...stats, maxHp: stats.hp, x, y: floor - stats.h, floor, left, right, speed, color, type,
+      return { ...stats, id: index, maxHp: stats.hp, x, y: floor - stats.h, floor, left, right, speed, color, type,
         direction: index % 2 ? 1 : -1, phase: index * 0.73, cooldown: 0.8 + index % 3 * 0.34, flash: 0 };
     });
     boss = null;
     if (level.arena) {
       const stats = enemyTypes.boss;
-      boss = { ...stats, maxHp: stats.hp, x: level.arena.bossX, y: groundY - stats.h,
+      boss = { ...stats, id: level.enemies.length, maxHp: stats.hp, x: level.arena.bossX, y: groundY - stats.h,
         color: 1, type: "boss", direction: -1, flash: 0, mode: "dormant", attack: "rain",
         timer: 0, patternIndex: 0, safeOrigin: 0 };
       enemies.push(boss);
     }
     bossHud.hidden = true;
-    gems = level.gems.map(([x, y]) => ({ x: x - 5, y: y - 6, w: 10, h: 12 }));
+    gems = level.gems.map(([x, y], id) => ({ id, x: x - 5, y: y - 6, w: 10, h: 12 }));
     shots = [];
     enemyShots = [];
     arcs = [];
@@ -562,6 +683,7 @@
     levelNumber.textContent = `LEVEL 0${index + 1}`;
     levelName.textContent = level.name;
     document.title = `Pixel Blaster｜${level.name}`;
+    updateProgress();
     updateHud();
     if (focus) {
       canvas.focus({ preventScroll: true });
@@ -582,15 +704,16 @@
     if (state !== "cleared") return;
     health = Math.min(maxHealth, health + 1);
     startLevel(levelIndex + 1, true);
+    saveRun();
   }
 
   function retryLevel() {
     if (state !== "lost") return;
-    ({ score, weaponIndex } = stageEntry);
-    unlocked = new Set(stageEntry.unlocked);
+    score = stageEntry.score;
     health = maxHealth;
     startLevel(levelIndex, true);
     updateWeapons();
+    saveRun();
   }
 
   function held(action) {
@@ -673,13 +796,23 @@
     panel.showModal();
   }
   function requestRestart() {
-    restartOrigin = settingsPanel.open ? settingsPanel : null;
+    restartOrigin = continuePanel.open ? continuePanel : settingsPanel.open ? settingsPanel : null;
     openPanel(restartPanel);
   }
   function cancelRestart() {
     restartPanel.close();
     if (restartOrigin) openPanel(restartOrigin);
   }
+  guideNext.addEventListener("click", () => {
+    if (guideIndex === guideSteps.length - 1) leaveGuide();
+    else { guideIndex++; drawGuide(); }
+  });
+  document.querySelector("#skip-guide").addEventListener("click", leaveGuide);
+  document.querySelector("#show-guide").addEventListener("click", showGuide);
+  guidePanel.addEventListener("cancel", event => { event.preventDefault(); leaveGuide(); });
+  continuePanel.addEventListener("cancel", event => { event.preventDefault(); resumeRun(); });
+  document.querySelector("#continue-game").addEventListener("click", resumeRun);
+  document.querySelector("#new-game").addEventListener("click", requestRestart);
   settingsToggle.addEventListener("click", () => openPanel(settingsPanel));
   weaponToggle.addEventListener("click", () => openPanel(weaponPanel));
   for (const close of document.querySelectorAll("[data-close]")) {
@@ -691,6 +824,7 @@
       const box = panel.getBoundingClientRect();
       if (event.clientX >= box.left && event.clientX <= box.right &&
           event.clientY >= box.top && event.clientY <= box.bottom) return;
+      if (panel === continuePanel || panel === guidePanel) return;
       if (panel === restartPanel) cancelRestart();
       else panel.close();
     });
@@ -701,7 +835,10 @@
   document.querySelector("#cancel-restart").addEventListener("click", cancelRestart);
   document.querySelector("#confirm-restart").addEventListener("click", () => {
     restartPanel.close();
+    savedRun = null;
+    allowSave = true;
     reset(true);
+    saveRun();
   });
   if (testLevel) {
     levels.forEach((level, index) => testLevel.add(new Option(`${index + 1} · ${level.name}`, String(index))));
@@ -712,6 +849,7 @@
       score = 0;
       if (settingsPanel.open) settingsPanel.close();
       startLevel(index, true);
+      saveRun();
     });
   }
   window.addEventListener("pageshow", event => {
@@ -739,15 +877,26 @@
     resultDetail.textContent = more
       ? `累計 ${score} 分 · 下一關 ${levels[levelIndex + 1].name}`
       : `本次分數 ${score}`;
-    retryButton.hidden = won || levelIndex === 0;
-    replay.hidden = more;
+    updateProgress();
+    if (allowSave) {
+      const next = more ? levelIndex + 1 : levelIndex;
+      const nextSave = checkpoint(next, more ? score : stageEntry.score, more ? Math.min(maxHealth, health + 1) : maxHealth);
+      if (state === "won") nextSave.completed = true;
+      writeLocal("run", nextSave);
+    }
+    pendingSave = false;
+    retryButton.hidden = won;
+    replay.hidden = more || (!won && levelIndex === 0);
     nextButton.hidden = !more;
     result.hidden = false;
+    resultDetail.textContent += ` · 最高分 ${best}`;
     resultTitle.focus({ preventScroll: true });
   }
 
   function earn(points) {
     score += points;
+    recordBest();
+    pendingSave = true;
     updateHud();
   }
 
@@ -764,8 +913,9 @@
   }
 
   function hurt(enemy) {
-    if (enemy && player.immunity > 0) return;
+    if (state !== "playing" || (enemy && player.immunity > 0)) return;
     health--;
+    pendingSave = true;
     updateHud();
     announceStatus(`剩餘 ${health} 點生命`);
     if (health === 0) {
@@ -774,6 +924,7 @@
     }
     sound.hurt();
     player.immunity = 1.25;
+    screen.dataset.protected = "true";
     if (enemy) {
       player.vx = player.x < enemy.x ? -110 : 110;
       player.vy = -118;
@@ -794,7 +945,10 @@
     const targetSpeed = movement * 140;
     player.vx += clamp(targetSpeed - player.vx, -1500 * dt, 1500 * dt);
     player.cooldown = Math.max(0, player.cooldown - dt);
-    player.immunity = Math.max(0, player.immunity - dt);
+    if (player.immunity > 0) {
+      player.immunity = Math.max(0, player.immunity - dt);
+      if (!player.immunity) screen.dataset.protected = "false";
+    }
     player.grace = player.grounded ? 0.08 : Math.max(0, player.grace - dt);
 
     if (jumpBuffer > 0 && player.grace > 0) {
@@ -840,7 +994,11 @@
         player.y = landing.y - player.h;
         player.vy = 0;
         player.grounded = true;
-        if (landing.y === groundY) player.respawn = Math.max(64, landing.x + 13);
+        if (landing.y === groundY) {
+          const floor = Math.max(64, landing.x + 13);
+          if (floor !== player.respawn) pendingSave = true;
+          player.respawn = floor;
+        }
       }
     }
 
@@ -864,6 +1022,7 @@
       if (!intersects(player, gem)) return true;
       burst(gem.x + 5, gem.y + 6, ["#fff6be", "#ffae54", "#fa6ca5"]);
       sound.gem();
+      picked.add(gem.id);
       earn(25);
       return false;
     });
@@ -883,6 +1042,8 @@
     particles = particles.filter(particle => particle.life > 0);
     for (const brick of bricks) brick.bump = Math.max(0, brick.bump - dt);
     updateSupplyMessage();
+    updateProgress();
+    if (pendingSave) saveRun();
     const targetCamera = arenaActive ? level.arena.start - 27
       : clamp(player.x - width * 0.35, 0, level.width - width);
     camera += (targetCamera - camera) * Math.min(1, dt * 8);
@@ -1071,6 +1232,7 @@
   function updateBoss(enemy, dt) {
     if (enemy.mode === "dormant") {
       if (player.x < level.arena.start) return;
+      screen.dataset.arena = "true";
       sound.setTrack("boss");
       prepareBarrage(enemy);
       bossHealth.max = enemy.maxHp;
@@ -1096,8 +1258,13 @@
 
   function updateBossHud(enemy) {
     bossHealth.value = Math.max(0, enemy.hp);
-    const warning = (enemy.hp <= enemy.maxHp / 2 ? "暴走 " : "") + bossCues[enemy.attack]
-      + (enemy.mode === "recover" ? "｜核心露出" : "");
+    const phase = (enemy.hp <= enemy.maxHp / 2 ? "暴走 · " : "") +
+      (enemy.mode === "recover" ? "核心露出" : "危險預告");
+    if (bossPhase.textContent !== phase) {
+      bossPhase.textContent = phase;
+      bossHud.dataset.mode = enemy.mode;
+    }
+    const warning = bossCues[enemy.attack];
     if (bossWarning.textContent !== warning) bossWarning.textContent = warning;
   }
 
@@ -1140,6 +1307,7 @@
     burst(enemy.x + enemy.w / 2, enemy.y + 6,
       [slimeColors[enemy.color][2], color, "#fff5c8"], defeated ? 14 : 4);
     if (defeated) {
+      beaten.add(enemy.id);
       enemies.splice(enemies.indexOf(enemy), 1);
       earn(enemy.points);
     }
@@ -1149,6 +1317,7 @@
         enemyShots = [];
         sound.setTrack(level.theme);
         bossHud.hidden = true;
+        screen.dataset.arena = "false";
         announceStatus("熔核巨像已擊敗，終點封印解除");
       }
     }
@@ -1667,7 +1836,27 @@
   }
 
   function adventurer() {
-    if (player.immunity > 0 && !reduceMotion && Math.floor(player.immunity * 15) % 2 === 0) return;
+    if (player.immunity > 0) {
+      // A continuous two-tone shield keeps the sprite readable throughout immunity.
+      const x = Math.round(player.x + player.w / 2), y = Math.round(player.y + 10);
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(x, y, 15, 19, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#72e8de36";
+      ctx.fill();
+      ctx.strokeStyle = "#255665";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.strokeStyle = "#b9fff4";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      if (player.immunity > 0.78) {
+        ctx.fillStyle = "#56283d";
+        ctx.font = "bold 10px monospace";
+        ctx.fillText("−1", x - 6, y - 21);
+      }
+      ctx.restore();
+    }
     const running = player.grounded && Math.abs(player.vx) > 15;
     const stride = running && !reduceMotion ? Math.floor(time * 14) % 2 : 0;
     const bob = running && !reduceMotion ? stride : 0;
@@ -1803,6 +1992,11 @@
   }
 
   function render() {
+    if (portrait.matches && screen.dataset.arena !== "true") {
+      // Crop the presentation only. AI, collisions and camera logic use the full 480px world view.
+      const offset = Math.round(clamp(player.x - camera - 352 * 0.35, 0, width - 352));
+      canvas.style.setProperty("--pan", `${-100 * offset / width}%`);
+    }
     terrainPalette = sceneryPalettes[level.theme];
     scenery();
     ctx.save();
@@ -1867,5 +2061,18 @@
   }
 
   reset();
+  bestLabel.textContent = String(best);
+  if (savedRun) {
+    const map = levels[savedRun.stage];
+    const at = savedRun.floor === 64 ? "關卡起點" : "最近的地面檢查點";
+    document.querySelector("#save-detail").textContent = `第 ${savedRun.stage + 1} 關「${map.name}」 · ${at} · 最高分 ${best}`;
+    if (savedRun.completed) document.querySelector("#continue-game").textContent = "重玩第五關";
+    openPanel(continuePanel);
+  } else if (readLocal("guideSeen") !== true) {
+    showGuide();
+  } else {
+    allowSave = true;
+    saveRun();
+  }
   requestAnimationFrame(frame);
 })();
