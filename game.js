@@ -21,9 +21,15 @@
     ruins: { bpm: 134, tonic: 65, scale: minor, voice: "triangle",
       chords: [0, 0, -1, -3, 0, 3, -1, -3],
       bars: ["0-042~10", "2~4-0-21", "0-042~46", "4~~-2~1-", "0-047~64", "2~4-6-42", "4-20-210", "1~~-4-2-"] },
-    boss: { bpm: 158, tonic: 62, scale: minor, voice: "square",
+    boss: { bpm: 158, tonic: 62, scale: minor, voice: "square", battle: true,
       chords: [0, -1, 0, -3, 3, -2, -3, 0],
-      bars: ["0-074-20", "4-214~2-", "0-074-67", "4~210-24", "7-646-42", "4~2-0742", "41-241-2", "0~0-0~--"] }
+      bars: ["0-074-20", "4-214~2-", "0-074-67", "4~210-24", "7-646-42", "4~2-0742", "41-241-2", "0~0-0~--"] },
+    crystalBoss: { bpm: 144, tonic: 70, scale: minor, voice: "sine", battle: true,
+      chords: [0, 2, -2, 1, 0, 3, -1, 0],
+      bars: ["70-4~24-", "52-7~42-", "64-2~406", "1~360~--", "70-4~267", "43-7~642", "6~4-2031", "0~~-4~--"] },
+    finalPhase: { bpm: 174, tonic: 60, scale: minor, voice: "square", battle: true,
+      chords: [0, 1, -2, 0, 3, -1, 1, 0],
+      bars: ["04-06074", "26-4212-", "04-06470", "3~2-10-4", "74-20764", "3~5-3210", "21-42146", "0-70~---"] }
   };
 
   function createGameAudio() {
@@ -179,7 +185,7 @@
           playTone(musicBus, nextNote, track.voice, hz, hz, beats * eighth * 0.94,
             track.voice === "square" ? 0.22 : 0.46);
         }
-        const battle = track === scores.boss;
+        const battle = track.battle;
         if (beat % 4 === 0 || (battle && beat % 2 === 0)) {
           const hz = pitch(beat === 4 ? 4 : 0) / 4;
           playTone(musicBus, nextNote, "triangle", hz, hz, eighth * (battle ? 1.1 : 1.8), 0.45);
@@ -243,9 +249,36 @@
         tone("triangle", 200, 80, 0.07);
       },
       hurt() { tone("sawtooth", 270, 65, 0.24); },
+      domain() {
+        tone("sine", 248, 82, 0.64, 0, 0.36);
+        tone("triangle", 196, 392, 0.44, 0.06, 0.23);
+        tone("sine", 588, 590, 0.58, 0.19, 0.32);
+        tone("sine", 880, 880, 0.46, 0.31, 0.19);
+      },
+      crystalEnter() {
+        [277, 415, 622, 831].forEach((hz, i) => tone("sine", hz, hz, 0.29, i * 0.1, 0.32));
+        tone("triangle", 139, 104, 0.45, 0.32, 0.27);
+      },
+      crystalHit() {
+        if (!audible() || context.currentTime - lastHit < 0.1) return;
+        lastHit = context.currentTime;
+        tone("triangle", 787, 570, 0.085, 0, 0.23);
+        tone("sine", 1208, 1103, 0.12, 0.02, 0.16);
+      },
+      crystalDefeat() {
+        [932, 740, 554, 370].forEach((hz, i) => tone("sine", hz, hz * 0.98, 0.27, i * 0.067, 0.3));
+        tone("triangle", 277, 415, 0.38, 0.29, 0.29);
+      },
+      phaseShift() {
+        tone("sawtooth", 146, 74, 0.39, 0, 0.2);
+        tone("triangle", 110, 330, 0.48, 0.14, 0.31);
+        tone("square", 392, 392, 0.12, 0.48, 0.19);
+        tone("square", 587, 587, 0.21, 0.64, 0.19);
+      },
       warning(pattern) {
-        const notes = { rain: [440, 330], curtain: [330, 440], volley: [392, 392, 392] };
-        notes[pattern].forEach((hz, i) => tone("square", hz, hz, 0.1, i * 0.14, 0.26));
+        const notes = { rain: [440, 330], curtain: [330, 440], volley: [392, 392, 392],
+          seeker: [466, 554, 698], lattice: [622, 466, 622], quake: [277, 208], crossfire: [311, 466, 311] };
+        (notes[pattern] ?? [392]).forEach((hz, i) => tone("square", hz, hz, 0.1, i * 0.14, 0.26));
       },
       barrage() { tone("sawtooth", 175, 48, 0.22); },
       finish(won) {
@@ -320,6 +353,7 @@
         [1703, 185], [1816, 158], [1973, 132], [2045, 204]]
     },
     {
+      arena: { kind: "crystal", name: "星砂守護者", start: 1860, bossX: 2185, gate: 2276 },
       name: "星砂晶谷", width: 2410, goal: 2315, theme: "valley", supplies: [[221, 159, 2], [1975, 159, 5]],
       platforms: [
         [0, groundY, 401], [462, groundY, 383], [912, groundY, 379],
@@ -367,7 +401,7 @@
     },
     {
       name: "熔火遺跡", width: 2260, goal: 2188, theme: "ruins", supplies: [],
-      arena: { start: 1732, bossX: 2011, gate: 2149 },
+      arena: { kind: "magma", name: "熔核巨像", start: 1732, bossX: 2011, gate: 2149 },
       platforms: [
         [0, groundY, 364], [427, groundY, 359], [856, groundY, 358],
         [1283, groundY, 340], [1690, groundY, 570],
@@ -410,7 +444,7 @@
     guard: { w: 29, h: 27, hp: 4, points: 290 },
     wisp: { w: 22, h: 20, hp: 3, points: 260 },
     hound: { w: 30, h: 21, hp: 4, points: 320 },
-    boss: { w: 60, h: 57, hp: 120, points: 3600 }
+    boss: { w: 60, h: 57, hp: 180, points: 3600 }
   };
 
   const slimeColors = [
@@ -470,7 +504,65 @@
   let time, shotIndex, jumpBuffer, previousTime, accumulator = 0;
   let levelIndex, level, platforms, pits, weaponIndex, enemyShots;
   let bricks, unlocked, arcs, unlockUntil, beam;
-  let boss, stageEntry;
+  let boss, stageEntry, crystalDefeat;
+  let domainUnlocked = false, domainTicks = 0, domainCooldown = 0, domainNotice = false;
+  const domainButton = document.querySelector("#domain-skill");
+  const domainStatus = document.querySelector("#domain-status");
+  const bossName = document.querySelector("#boss-name");
+
+  function refreshDomain() {
+    const seconds = Math.ceil(domainCooldown / 60);
+    const label = !domainUnlocked ? "鎖定" : seconds ? seconds + " 秒" : "READY";
+    if (domainStatus.textContent === label) return;
+    domainStatus.textContent = label;
+    domainButton.dataset.ready = String(domainUnlocked && !seconds);
+    domainButton.setAttribute("aria-disabled", String(!domainUnlocked || seconds > 0));
+    domainButton.title = domainUnlocked ? "K · 無量空処 · " + label : "通過暮光菇林後解鎖";
+  }
+
+  function castDomain() {
+    if (state !== "playing" || menuOpen() || !domainUnlocked || domainCooldown > 0) return;
+    domainTicks = 240;
+    domainCooldown = 3600;
+    sound.domain();
+    refreshDomain();
+    announceStatus("領域展開 · 無量空処");
+    saveRun();
+  }
+
+  function inDomain(enemy) {
+    return domainTicks > 0 && (Math.abs(enemy.x + enemy.w / 2 - player.x - player.w / 2) <= 320 ||
+      (enemy === boss && enemy.mode !== "dormant"));
+  }
+
+  function tickDomain() {
+    if (domainTicks > 0) {
+      // Four pulses on simulation ticks 60, 120, 180 and 240.
+      if (domainTicks % 60 === 1) {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          const enemy = enemies[i];
+          if (inDomain(enemy)) damageEnemy(enemy, 1, "#c7c2ff");
+        }
+      }
+      domainTicks--;
+    }
+    if (domainCooldown > 0) {
+      domainCooldown--;
+      if (domainCooldown % 60 === 0) {
+        refreshDomain();
+        pendingSave = true;
+      }
+    }
+  }
+
+  function showDomainNotice() {
+    if (!domainNotice || levelIndex !== 2) return;
+    domainNotice = false;
+    supplyMessage.textContent = "新技能解鎖！無量空処 · 按 K 或點「領域展開」，定住附近敵人 4 秒。";
+    supplyMessage.hidden = false;
+    unlockUntil = time + 6;
+    announceStatus(supplyMessage.textContent);
+  }
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   // followX is the ordinary side-scrolling view before framing the boss arena.
@@ -555,7 +647,7 @@
   }
   function checkpoint(stage, base, hp) {
     return { v: 1, stage, base, score: base, hp, guns: [...unlocked], weapon: weaponIndex,
-      floor: 64, picked: [], beaten: [] };
+      domain: stage >= 2, cooldown: domainCooldown, domainNotice, floor: 64, picked: [], beaten: [] };
   }
   function saveRun() {
     if (!allowSave || state !== "playing") return;
@@ -569,6 +661,8 @@
     savedRun = null;
     continuePanel.close();
     allowSave = true;
+    domainCooldown = integer(r.cooldown, 0, 3600) ? r.cooldown : 0;
+    domainNotice = r.stage === 2 && (r.domainNotice === true || r.domain === undefined);
     score = r.base;
     health = r.hp;
     unlocked = testLevel ? new Set(weapons.keys()) : new Set(r.guns);
@@ -678,6 +772,9 @@
     clearInputs();
     levelIndex = index;
     level = levels[index];
+    domainUnlocked = index >= 2;
+    domainTicks = 0;
+    crystalDefeat = null;
     sound.setTrack(level.theme);
     if (testLevel) testLevel.value = String(index);
     stageEntry = { score };
@@ -701,7 +798,8 @@
     boss = null;
     if (level.arena) {
       const stats = enemyTypes.boss;
-      boss = { ...stats, id: level.enemies.length, maxHp: stats.hp, x: level.arena.bossX, y: groundY - stats.h,
+      const hp = level.arena.kind === "crystal" ? 120 : stats.hp;
+      boss = { ...stats, id: level.enemies.length, hp, maxHp: hp, kind: level.arena.kind, phase: 1, x: level.arena.bossX, y: groundY - stats.h,
         color: 1, type: "boss", direction: -1, flash: 0, mode: "dormant", attack: "rain",
         timer: 0, patternIndex: 0, safeOrigin: 0 };
       enemies.push(boss);
@@ -718,6 +816,8 @@
     shotIndex = 0;
     time = 0;
     state = "playing";
+    refreshDomain();
+    showDomainNotice();
     result.hidden = true;
     levelNumber.textContent = `LEVEL 0${index + 1}`;
     levelName.textContent = level.name;
@@ -731,6 +831,8 @@
   }
 
   function reset(focus = false) {
+    domainCooldown = 0;
+    domainNotice = false;
     score = 0;
     health = maxHealth;
     unlocked = testLevel ? new Set(weapons.keys()) : new Set([0]);
@@ -767,6 +869,11 @@
 
   window.addEventListener("keydown", event => {
     if (menuOpen() || event.ctrlKey || event.altKey || event.metaKey || event.target.closest?.("select, a")) return;
+    if (event.code === "KeyK") {
+      event.preventDefault();
+      if (!event.repeat) { sound.unlock(); castDomain(); }
+      return;
+    }
     if (event.code === "KeyR" && !event.repeat) {
       sound.unlock();
       requestRestart();
@@ -797,7 +904,7 @@
     if (document.hidden) clearInputs();
   });
 
-  window.addEventListener("pagehide", clearInputs);
+  window.addEventListener("pagehide", () => { clearInputs(); saveRun(); });
   window.addEventListener("orientationchange", clearInputs);
 
   function releaseTouch(event) {
@@ -817,6 +924,7 @@
       pointers.set(event.pointerId, button);
       button.classList.add("pressed");
       if (button.dataset.action === "jump") jumpBuffer = 0.13;
+      if (button.dataset.action === "domain") castDomain();
     });
 
     button.addEventListener("pointerup", event => { sound.unlock(); releaseTouch(event); });
@@ -826,6 +934,9 @@
     });
     button.addEventListener("contextmenu", event => event.preventDefault());
   }
+  domainButton.addEventListener("click", event => {
+    if (event.detail === 0) { sound.unlock(); castDomain(); }
+  });
   window.addEventListener("pointerup", releaseTouch);
   window.addEventListener("pointercancel", releaseTouch);
 
@@ -908,6 +1019,7 @@
 
   function finish(won) {
     const more = won && levelIndex + 1 < levels.length;
+    if (won && levelIndex === 1) domainNotice = true;
     state = more ? "cleared" : won ? "won" : "lost";
     clearInputs();
     sound.setTrack(null);
@@ -1048,11 +1160,13 @@
     }
 
     enemies.forEach(enemy => updateEnemy(enemy, dt));
+    tickDomain();
+    if (crystalDefeat) crystalDefeat.life -= dt;
     updateWeapon();
     shots = shots.filter(shot => advanceShot(shot, dt));
     enemyShots = enemyShots.filter(shot => {
       if (!moveShot(shot, dt)) return false;
-      if (!intersects(player, shot)) return true;
+      if (shot.delay > 0 || !intersects(player, shot)) return true;
       hurt(shot);
       return false;
     });
@@ -1145,9 +1259,14 @@
   function updateEnemy(enemy, dt) {
     enemy.flash = Math.max(0, enemy.flash - dt);
     if (enemy.type === "boss") {
-      updateBoss(enemy, dt);
+      updateBoss(enemy, dt * (inDomain(enemy) && (enemy.mode === "windup" || enemy.mode === "recover") ? 0.70 : 1));
       return;
     }
+    if (inDomain(enemy)) {
+      enemy.frozenTime = (enemy.frozenTime || 0) + dt;
+      return;
+    }
+    const enemyTime = time - (enemy.frozenTime || 0);
     if (enemy.type === "wisp" && Math.abs(player.x - enemy.x) < 218) {
       enemy.cooldown = Math.max(0, enemy.cooldown - dt);
       if (enemy.cooldown === 0) {
@@ -1172,11 +1291,11 @@
 
     let pace = 1;
     if (enemy.type === "guard") {
-      enemy.braced = (time + enemy.phase) % 2.8 < 1.35;
+      enemy.braced = (enemyTime + enemy.phase) % 2.8 < 1.35;
       pace = enemy.braced ? 0.65 : 1.35;
     }
     if (enemy.type === "hound") {
-      const charge = (time + enemy.phase) % 2.65;
+      const charge = (enemyTime + enemy.phase) % 2.65;
       enemy.windup = charge < 0.5;
       pace = enemy.windup ? 0 : charge < 1.08 ? 2.9 : 0.8;
     }
@@ -1186,10 +1305,10 @@
       enemy.direction *= -1;
     }
     const baseline = enemy.floor - enemy.h;
-    if (enemy.type === "bat") enemy.y = baseline + Math.sin(time * 4 + enemy.phase) * 17;
-    if (enemy.type === "wisp") enemy.y = baseline + Math.sin(time * 3 + enemy.phase) * 20;
+    if (enemy.type === "bat") enemy.y = baseline + Math.sin(enemyTime * 4 + enemy.phase) * 17;
+    if (enemy.type === "wisp") enemy.y = baseline + Math.sin(enemyTime * 3 + enemy.phase) * 20;
     if (enemy.type === "hopper") {
-      const hop = (time + enemy.phase) % 1.48;
+      const hop = (enemyTime + enemy.phase) % 1.48;
       enemy.y = baseline - (hop < 0.69 ? Math.sin(hop / 0.69 * Math.PI) * 34 : 0);
     }
   }
@@ -1214,16 +1333,25 @@
 
   const bossPatterns = ["rain", "curtain", "rain", "volley"];
   const bossCues = { rain: "熔星雨 · 移入青帶", curtain: "彈牆 · 跳入缺口", volley: "星環 · 閃開地波" };
+  const finalPatterns = ["crossfire", "curtain", "volley", "rain"];
+  const crystalPatterns = ["seeker", "lattice", "quake"];
+  Object.assign(bossCues, {
+    seeker: "引晶追跡 · 待晶彈靠近再換向",
+    lattice: "斜晶星陣 · 移入薄荷色光帶",
+    quake: "雙重地鳴 · 跳過兩道震波",
+    crossfire: "熔雨與地波 · 在青帶內跳躍"
+  });
   const laneSpacing = 168;
 
   function prepareBarrage(enemy) {
-    enemy.attack = bossPatterns[enemy.patternIndex];
+    const patterns = enemy.kind === "crystal" ? crystalPatterns : enemy.phase === 2 ? finalPatterns : bossPatterns;
+    enemy.attack = patterns[enemy.patternIndex % patterns.length];
     sound.warning(enemy.attack);
     enemy.mode = "windup";
-    enemy.timer = enemy.hp <= enemy.maxHp / 2 ? 0.88 : 1.05;
+    enemy.timer = enemy.kind === "crystal" ? 1.08 : enemy.phase === 2 ? 0.92 : 1.38;
     // Keep the announced lanes fixed while the player moves to safety.
     enemy.safeOrigin = player.x + player.w / 2 + laneSpacing / 2;
-    enemy.laneHalfWidth = enemy.hp <= enemy.maxHp / 2 ? 28 : 35;
+    enemy.laneHalfWidth = enemy.kind === "crystal" ? 38 : enemy.phase === 2 ? 30 : 42;
   }
 
   function rainLanes(enemy) {
@@ -1239,9 +1367,9 @@
 
   function emitBarrage(enemy, enraged) {
     const { start, gate } = level.arena;
-    if (enemy.attack === "rain") {
+    if (enemy.attack === "rain" || enemy.attack === "crossfire") {
       const lanes = rainLanes(enemy);
-      const rows = enraged ? 6 : 4;
+      const rows = enraged ? 6 : 3;
       for (let row = 0; row < rows; row++) {
         for (let x = start - 12 + row % 2 * 7; x <= gate + 8; x += 14) {
           if (lanes.some(([left, right]) => x + 6 >= left && x <= right)) continue;
@@ -1249,9 +1377,10 @@
             life: 1.6, kind: "rain", color: "#ffab72" });
         }
       }
+      if (enemy.attack === "crossfire") fireGroundWave(enemy, 165);
     } else if (enemy.attack === "curtain") {
       // A horizontal opening at jumping height also intersects the low platforms.
-      for (let column = 0; column < (enraged ? 4 : 3); column++) {
+      for (let column = 0; column < (enraged ? 4 : 2); column++) {
         for (let y = 5 + column % 2 * 6; y < groundY; y += 13) {
           if (y + 6 >= 146 && y <= 188) continue;
           enemyShots.push({ x: gate + 24 + column * 13, y, w: 6, h: 6,
@@ -1259,34 +1388,72 @@
         }
       }
     } else {
-      const count = enraged ? 32 : 24;
+      const count = enraged ? 32 : 16;
       const angles = Array.from({length: count}, (_, i) => i * Math.PI * 2 / count);
       fireEnemyFan(enemy, angles, enraged ? 178 : 148, "#ffbd80");
       fireGroundWave(enemy, enraged ? 190 : 160);
     }
   }
 
+  function emitCrystalAttack(enemy) {
+    const { start, gate } = level.arena;
+    if (enemy.attack === "seeker") {
+      const x = enemy.x + enemy.w / 2, y = enemy.y + 16;
+      const aim = Math.atan2(player.y + 10 - y, player.x + 8 - x);
+      for (const offset of [-0.48, 0, 0.48]) {
+        const angle = aim + offset;
+        enemyShots.push({ x, y, w: 8, h: 8, vx: Math.cos(angle) * 126, vy: Math.sin(angle) * 126,
+          steer: 0.65, life: 3, color: "#a6f8fc", kind: "seeker" });
+      }
+    } else if (enemy.attack === "lattice") {
+      const lanes = rainLanes(enemy);
+      for (let row = 0; row < 3; row++) {
+        for (let x = start - 8 + (row % 2) * 11; x < gate + 10; x += 22) {
+          if (lanes.some(([l,r]) => x + 25 >= l && x - 19 <= r)) continue;
+          enemyShots.push({ x, y: 3 + row * 18, w: 7, h: 10, vx: row % 2 ? -14 : 14,
+            vy: 167, life: 1.65, color: "#acddff", kind: "shard" });
+        }
+      }
+    } else {
+      for (const delay of [0, 0.84]) {
+        for (const dir of [-1, 1]) {
+          enemyShots.push({ x: enemy.x + enemy.w / 2, y: groundY - 13, w: 14, h: 13,
+            vx: dir * 177, vy: 0, delay, life: 2.7, color: "#a2fbe4", kind: "wave" });
+        }
+      }
+    }
+  }
+
   function updateBoss(enemy, dt) {
+    const crystal = enemy.kind === "crystal";
     if (enemy.mode === "dormant") {
       if (player.x < level.arena.start) return;
       screen.dataset.arena = "true";
-      sound.setTrack("boss");
-      prepareBarrage(enemy);
+      sound.setTrack(crystal ? "crystalBoss" : "boss");
+      if (crystal) {
+        enemy.mode = "intro";
+        enemy.timer = 1.15;
+        sound.crystalEnter();
+      } else prepareBarrage(enemy);
+      bossName.textContent = level.arena.name;
       bossHealth.max = enemy.maxHp;
       bossHud.hidden = false;
-      announceStatus("熔核巨像啟動。移入青色光帶，避開熔星雨。");
+      announceStatus(level.arena.name + "出現，終點封印啟動");
     }
-    const enraged = enemy.hp <= enemy.maxHp / 2;
     enemy.direction = player.x + player.w / 2 < enemy.x + enemy.w / 2 ? -1 : 1;
     enemy.timer -= dt;
     if (enemy.timer <= 0) {
       if (enemy.mode === "windup") {
-        sound.barrage();
-        emitBarrage(enemy, enraged);
+        if (crystal) emitCrystalAttack(enemy);
+        else { sound.barrage(); emitBarrage(enemy, enemy.phase === 2); }
         enemy.mode = "recover";
-        enemy.timer = enraged ? 1.43 : 1.76;
+        enemy.timer = crystal ? 1.75 : enemy.phase === 2 ? 0.70 : 2.05;
+      } else if (enemy.mode === "recover" && enemy.phase === 2 &&
+          (enemy.attack === "crossfire" || enemy.attack === "volley")) {
+        enemy.mode = "open";
+        enemy.timer = 2.15;
       } else {
-        enemy.patternIndex = (enemy.patternIndex + 1) % bossPatterns.length;
+        if (enemy.mode !== "intro" && enemy.mode !== "transition") enemy.patternIndex++;
         prepareBarrage(enemy);
       }
     }
@@ -1295,18 +1462,25 @@
 
   function updateBossHud(enemy) {
     bossHealth.value = Math.max(0, enemy.hp);
-    const phase = (enemy.hp <= enemy.maxHp / 2 ? "暴走 · " : "") +
-      (enemy.mode === "recover" ? "核心露出" : "危險預告");
-    if (bossPhase.textContent !== phase) {
-      bossPhase.textContent = phase;
-      bossHud.dataset.mode = enemy.mode;
+    let phase, warning;
+    if (enemy.mode === "intro") {
+      phase = "守護者甦醒"; warning = "結晶正在聚合";
+    } else if (enemy.mode === "transition") {
+      phase = "第二階段"; warning = "WARNING — FINAL PHASE";
+    } else if (enemy.mode === "open") {
+      phase = "核心露出"; warning = "瞄準巨像，立即攻擊！";
+    } else {
+      phase = enemy.kind === "crystal" ? "星砂晶陣" : enemy.phase === 2 ? "暴走 · 核心封閉" : "第一階段";
+      warning = bossCues[enemy.attack];
     }
-    const warning = bossCues[enemy.attack];
+    if (bossPhase.textContent !== phase) bossPhase.textContent = phase;
+    if (bossHud.dataset.mode !== enemy.mode) bossHud.dataset.mode = enemy.mode;
     if (bossWarning.textContent !== warning) bossWarning.textContent = warning;
   }
 
   function barrageGuide() {
-    if (boss.attack === "rain") {
+    if (boss.mode !== "windup" && boss.mode !== "recover") return;
+    if (boss.attack === "rain" || boss.attack === "crossfire" || boss.attack === "lattice") {
       for (const [left, right] of rainLanes(boss)) {
         rect(left, 0, right - left, groundY, "#76ffe31c");
         rect(left, 90, 1, groundY - 90, "#8ef4d9");
@@ -1316,6 +1490,8 @@
         rect(mid - 4, groundY - 13, 9, 2, "#a6ffe5");
         rect(mid - 2, groundY - 11, 5, 2, "#a6ffe5");
       }
+    } else if (boss.attack === "quake") {
+      rect(level.arena.start, groundY - 2, level.arena.gate - level.arena.start, 2, "#a3f2d8");
     } else if (boss.attack === "curtain") {
       rect(level.arena.gate - 2, 146, 4, 43, "#98fcdc");
       for (let i = 0; i < 4; i++) rect(level.arena.gate - 10 - i * 13, 168, 6, 1, "#a4ffe6");
@@ -1323,6 +1499,16 @@
   }
 
   function moveShot(shot, dt) {
+    if (shot.delay > 0) { shot.delay -= dt; return true; }
+    if (shot.steer > 0) {
+      const aim = Math.atan2(player.y + 11 - shot.y, player.x + 8 - shot.x);
+      const heading = Math.atan2(shot.vy, shot.vx);
+      const delta = Math.atan2(Math.sin(aim - heading), Math.cos(aim - heading));
+      const angle = heading + clamp(delta, -1.1 * dt, 1.1 * dt);
+      shot.vx = Math.cos(angle) * 126;
+      shot.vy = Math.sin(angle) * 126;
+      shot.steer -= dt;
+    }
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
     shot.life -= dt;
@@ -1332,13 +1518,25 @@
 
   function damageEnemy(enemy, damage, color, direction = 0) {
     const guarded = enemy.type === "guard" && enemy.braced && direction === -enemy.direction;
-    if (enemy.type === "boss" && enemy.mode === "dormant") return;
-    if (guarded || (enemy.type === "boss" && enemy.mode === "windup")) {
+    if (enemy.hp <= 0 || enemy.mode === "dormant" || enemy.mode === "intro") return;
+    if (guarded || (enemy.type === "boss" && enemy.phase === 2 && enemy.mode !== "open")) {
       burst(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, ["#bcddf2", "#fff5c8"], 3);
       return;
     }
-    sound.hit();
-    enemy.hp -= damage;
+    if (enemy.kind === "crystal") sound.crystalHit();
+    else sound.hit();
+    enemy.hp = Math.max(0, enemy.hp - damage);
+    if (enemy.kind === "magma" && enemy.phase === 1 && enemy.hp <= 90) {
+      enemy.hp = 90;
+      enemy.phase = 2;
+      enemy.mode = "transition";
+      enemy.timer = 1.65;
+      enemy.patternIndex = 0;
+      enemyShots = [];
+      sound.phaseShift();
+      sound.setTrack("finalPhase");
+      announceStatus("WARNING — FINAL PHASE · 核心只在組合攻擊後露出");
+    }
     enemy.flash = 0.14;
     const defeated = enemy.hp <= 0;
     burst(enemy.x + enemy.w / 2, enemy.y + 6,
@@ -1355,7 +1553,11 @@
         sound.setTrack(level.theme);
         bossHud.hidden = true;
         screen.dataset.arena = "false";
-        announceStatus("熔核巨像已擊敗，終點封印解除");
+        if (enemy.kind === "crystal") {
+          crystalDefeat = { x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, life: 0.95 };
+          sound.crystalDefeat();
+        }
+        announceStatus(level.arena.name + "已擊敗，終點封印解除");
       }
     }
   }
@@ -1740,7 +1942,8 @@
 
   function enemyArt(enemy) {
     if (enemy.type === "boss") {
-      bossArt(enemy);
+      if (enemy.kind === "crystal") crystalGuardianArt(enemy);
+      else { bossArt(enemy); finalPhaseArt(enemy); }
       return;
     }
     if (enemy.type === "slime") {
@@ -1862,6 +2065,174 @@
         if (attack === "curtain") rect(x - 8, groundY - 3, 76, 3, "#ffc071");
         sparkle(x + 30, y + (attack === "curtain" ? 50 : 24), "#ffbe73", 5);
       }
+    }
+  }
+
+  // These screen-space paths stay behind the terrain, combat cues and projectiles.
+  const domainStars = Array.from({ length: 39 }, (_, i) => ({
+    x: ((i * 127 + i * i * 11 + 23) % 479) / 480,
+    y: ((i * 61 + i * i * 3 + 13) % 239) / 270
+  }));
+
+  function domainBackdrop(remaining) {
+    if (!(remaining > 0)) return;
+    const elapsed = 4 - remaining;
+    const fade = Math.max(0, Math.min(1, elapsed / 0.42, remaining / 0.55));
+    const motion = reduceMotion ? 0 : elapsed;
+    ctx.save();
+    ctx.globalAlpha = fade * 0.95;
+    rect(0, 0, width, height, "#191434");
+    ctx.globalAlpha = fade;
+    // Offset ellipses around a single distant pole suggest folded starlight.
+    const poleX = width * 0.46, poleY = height * 0.40;
+    ctx.save();
+    ctx.translate(poleX, poleY);
+    ctx.rotate(-0.17);
+    for (let i = 3; i >= 0; i--) {
+      const radius = 28 + i * i * 23 + motion * (2 + i);
+      ctx.beginPath();
+      ctx.ellipse(0, i * 2, radius, radius * 0.34, 0, 0, Math.PI * 2);
+      ctx.fillStyle = ["#25224d", "#292955", "#282047", "#252042"][i];
+      ctx.fill();
+      ctx.strokeStyle = ["#9589c1", "#64639e", "#504780", "#3e356a"][i];
+      ctx.lineWidth = i === 1 ? 2 : 1;
+      ctx.stroke();
+    }
+    ctx.restore();
+    for (let i = 0; i < domainStars.length; i++) {
+      const star = domainStars[i];
+      const x = star.x * width + Math.sin(i + motion * 0.45) * (reduceMotion ? 0 : 2);
+      const y = star.y * height - motion * (i % 3) * 0.7;
+      if (i % 8 === 0) sparkle(x, y, "#adacd9", 2);
+      else rect(x, y, i % 4 === 0 ? 2 : 1, 1, i % 2 ? "#857ba7" : "#719db7");
+    }
+    // A pair of small satellites orbits the still center without whole-screen motion.
+    for (let i = 0; i < 2; i++) {
+      const angle = 0.63 + motion * 0.32 + i * Math.PI;
+      const dx = Math.cos(angle) * 54, dy = Math.sin(angle) * 17;
+      sparkle(poleX + dx, poleY + dy - dx * 0.17, i ? "#bcabdf" : "#94d7df", 2);
+    }
+    ctx.restore();
+  }
+
+  function phaseBackdrop(enemy) {
+    if (!enemy || enemy.phase !== 2 || enemy.hp <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = enemy.mode === "transition" ? 0.24 : 0.32;
+    rect(0, 0, width, height, "#54204a");
+    ctx.restore();
+  }
+
+  // Draw a cut crystal from stepped horizontal facets, with a bright ridge.
+  function guardianShard(x, y, radius, size, light, shade) {
+    for (let row = 0; row < size; row += 2) {
+      const t = (row + 1) / size;
+      const span = Math.max(1, Math.round(radius * Math.min(t / 0.50, (1 - t) / 0.50)));
+      rect(x - span - 1, y + row, span * 2 + 2, 2, "#35335e");
+      rect(x - span, y + row, span, 2, light);
+      rect(x, y + row, span, 2, shade);
+    }
+  }
+
+  function crystalGuardianArt(enemy) {
+    const { x, y, w, h } = enemy;
+    const intro = enemy.mode === "intro" ? Math.max(0, Math.min(1, enemy.timer / 1.15)) : 0;
+    const rise = reduceMotion ? 0 : Math.round(9 * intro * intro);
+    const bob = reduceMotion || enemy.mode === "dormant" ? 0 : Math.round(Math.sin(time * 2.7));
+    const gleam = enemy.flash > 0 ? "#fff3df" : "#b6fff2";
+    ctx.save();
+    ctx.translate(Math.round(x + w / 2), Math.round(y + h));
+    rect(-21, -3, 42, 3, "#383853");
+    rect(-14, -2, 28, 1, "#657296");
+    ctx.translate(0, -rise + bob);
+    // The two suspended forepaws fold out of a cluster of geodes on entry.
+    const split = reduceMotion ? 0 : Math.round(7 * intro);
+    for (const side of [-1, 1]) {
+      const paw = side * (23 + split);
+      guardianShard(paw, -32 - rise, 6, 18, "#8bcbd7", "#797bc6");
+      rect(paw - 5, -25 - rise, 9, 3, "#5a639c");
+      rect(paw - 4, -22 - rise, 2, 3, "#e9c29a");
+      rect(paw, -22 - rise, 2, 3, "#e9c29a");
+      rect(side * 11 - 5, -8, 10, 7, "#484366");
+      rect(side * 11 - 4, -7, 8, 3, "#969ad0");
+    }
+    // A star-cut crest, two tiny ears and a wide round visor give the keeper its silhouette.
+    guardianShard(-13, -48 - rise, 5, 18, "#a1b7ed", "#706bae");
+    guardianShard(13, -48 - rise, 5, 18, "#a1b7ed", "#706bae");
+    guardianShard(0, -55 - rise, 7, 21, "#b3e7f1", "#7c90c9");
+    rect(-13, -42, 26, 37, "#393b62");
+    rect(-18, -38, 36, 28, "#393b62");
+    rect(-21, -32, 42, 16, "#393b62");
+    rect(-12, -40, 24, 33, "#837fc1");
+    rect(-17, -36, 34, 23, "#94afcb");
+    rect(-19, -31, 38, 13, "#abcbd4");
+    rect(-13, -35, 26, 3, "#d3e6e4");
+    rect(-14, -29, 28, 12, "#424466");
+    rect(-16, -26, 32, 6, "#424466");
+    const gaze = enemy.direction < 0 ? -1 : 1;
+    rect(-9 + gaze, -26, 3, 4, gleam);
+    rect(6 + gaze, -26, 3, 4, gleam);
+    rect(-2, -21, 4, 1, "#aabbd2");
+    rect(-13, -22, 3, 1, "#e4a9c8");
+    rect(10, -22, 3, 1, "#e4a9c8");
+    guardianShard(0, -16, 5, 13, "#efc3c0", "#c38db8");
+    if (enemy.mode === "windup" || enemy.mode === "intro") {
+      sparkle(0, -48 - rise, gleam, 3);
+      rect(-13, -13, 5, 2, "#b6fff2");
+      rect(8, -13, 5, 2, "#b6fff2");
+    }
+    if (enemy.flash > 0) {
+      rect(8, -39, 5, 2, gleam);
+      rect(11, -37, 2, 3, gleam);
+      rect(13, -35, 2, 3, gleam);
+    }
+    ctx.restore();
+  }
+
+  function crystalDefeatArt(fx) {
+    if (!fx || fx.life <= 0) return;
+    const progress = Math.max(0, Math.min(1, 1 - fx.life / 0.95));
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, fx.life / 0.48);
+    const radius = reduceMotion ? 15 : 5 + progress * 37;
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4 - Math.PI / 2;
+      const x = fx.x + Math.cos(angle) * radius;
+      const y = fx.y + Math.sin(angle) * radius * 0.75 - (reduceMotion ? 0 : progress * 13);
+      guardianShard(x, y, i % 2 ? 2 : 3, i % 2 ? 6 : 8, "#d3f3f3", "#ac8ecd");
+    }
+    sparkle(fx.x, fx.y, "#f3d4dc", 4);
+    ctx.restore();
+  }
+
+  function finalPhaseArt(enemy) {
+    if (enemy.phase !== 2 || enemy.hp <= 0) return;
+    const x = Math.round(enemy.x), y = Math.round(enemy.y);
+    const open = enemy.mode === "open", charging = enemy.mode === "transition";
+    const amber = charging ? "#ffcd86" : "#f3a563";
+    rect(x + 3, y + 33, 7, 2, amber);
+    rect(x + 8, y + 35, 2, 4, amber);
+    rect(x + 49, y + 35, 6, 2, amber);
+    rect(x + 49, y + 37, 2, 4, amber);
+    rect(x + 20, y + 29, 20, 18, "#412e48");
+    if (open || charging) {
+      const light = charging ? "#ffd17e" : "#c2fff1";
+      rect(x + 23, y + 30, 14, 16, "#ab625b");
+      rect(x + 21, y + 33, 18, 10, "#ab625b");
+      rect(x + 25, y + 32, 10, 12, charging ? "#f39558" : "#56b6ad");
+      rect(x + 23, y + 35, 14, 6, charging ? "#ffba72" : "#7cd4c0");
+      sparkle(x + 30, y + 38, light, open ? 5 : 3);
+      if (open) {
+        rect(x + 16, y + 32, 3, 11, "#d28872");
+        rect(x + 41, y + 32, 3, 11, "#d28872");
+      }
+    } else {
+      // The crossbar and its square clasp remain readable even over weapon effects.
+      rect(x + 21, y + 31, 18, 13, "#805268");
+      rect(x + 22, y + 32, 16, 3, "#b77478");
+      rect(x + 21, y + 37, 18, 3, "#533849");
+      rect(x + 28, y + 34, 5, 8, "#d3a078");
+      rect(x + 30, y + 36, 1, 4, "#6d4550");
     }
   }
 
@@ -2034,6 +2405,8 @@
     frameCamera(drawX);
     terrainPalette = sceneryPalettes[level.theme];
     scenery();
+    phaseBackdrop(boss);
+    domainBackdrop(domainTicks / 60);
     ctx.save();
     ctx.translate(-Math.round(camera), 0);
     for (const [left, right] of pits) {
@@ -2058,15 +2431,17 @@
     enemies.forEach(enemy => {
       if (enemy.x + enemy.w > camera && enemy.x < camera + width) enemyArt(enemy);
     });
+    crystalDefeatArt(crystalDefeat);
     shots.forEach(shotArt);
     if (beam) beamArt();
     arcs.forEach(arcArt);
     for (const shot of enemyShots) {
+      if (shot.delay > 0) continue;
       if (shot.kind === "wave") {
         rect(shot.x, shot.y + 8, shot.w, 4, "#b75058");
         rect(shot.x + 3, shot.y + 4, 9, 6, "#fa7c61");
         rect(shot.x + 5, shot.y + 1, 5, 7, shot.color);
-      } else if (shot.kind === "rain" || shot.kind === "curtain") {
+      } else if (shot.kind === "rain" || shot.kind === "curtain" || shot.kind === "shard") {
         rect(shot.x, shot.y, shot.w, shot.h, "#7c4669");
         rect(shot.x + 1, shot.y + 1, shot.w - 2, shot.h - 2, shot.color);
         rect(shot.x + 2, shot.y + 2, 2, 2, "#fff5dd");
