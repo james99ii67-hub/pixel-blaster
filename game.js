@@ -226,6 +226,9 @@
     return {
       unlock, sustain, setActive, setTrack, scheduleMusic,
       jump() { tone("square", 270, 670, 0.12, 0, 0.19); },
+      domain() {
+        [392, 523, 784, 1046].forEach((hz, i) => tone("sine", hz, hz * 1.08, 0.28, i * 0.08, 0.18));
+      },
       gem() { tone("sine", 880, 880, 0.09); tone("sine", 1320, 1320, 0.13, 0.07); },
       brick() {
         tone("triangle", 170, 75, 0.07);
@@ -420,7 +423,7 @@
   ];
   const keyActions = {
     ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
-    ArrowUp: "jump", KeyW: "jump", Space: "jump", KeyX: "fire", KeyJ: "fire"
+    ArrowUp: "jump", KeyW: "jump", Space: "jump", KeyX: "fire", KeyJ: "fire", KeyK: "domain"
   };
   const keys = new Set();
   const pointers = new Map();
@@ -445,6 +448,8 @@
   const announce = document.querySelector("#announce");
   const equipped = document.querySelector("#equipped");
   const weaponToggle = document.querySelector("#weapon-toggle");
+  const domainButton = document.querySelector("#domain-button");
+  const domainStatus = document.querySelector("#domain-status");
   const settingsToggle = document.querySelector("#settings-toggle");
   const settingsPanel = document.querySelector("#settings-panel");
   const weaponPanel = document.querySelector("#weapon-panel");
@@ -471,6 +476,58 @@
   let levelIndex, level, platforms, pits, weaponIndex, enemyShots;
   let bricks, unlocked, arcs, unlockUntil, beam;
   let boss, stageEntry;
+  const domainDuration = 4, domainCooldownSeconds = 60;
+  let domainUnlocked = false, domainRemaining = 0, domainCooldown = 0, domainPulse = 0;
+  let domainButtonLabel = "";
+  function updateDomainButton() {
+    const label = !domainUnlocked ? "未解鎖" :
+      domainRemaining > 0 ? "發動中" : domainCooldown > 0 ? `${Math.ceil(domainCooldown)}s` : "READY";
+    if (label !== domainButtonLabel) {
+      domainStatus.textContent = label;
+      domainButtonLabel = label;
+    }
+    domainButton.disabled = state !== "playing" || !domainUnlocked || domainCooldown > 0;
+    domainButton.classList.toggle("domain-active", domainRemaining > 0);
+    domainButton.classList.toggle("domain-ready", domainUnlocked && domainCooldown === 0);
+    domainButton.setAttribute("aria-label", !domainUnlocked
+      ? "領域展開・無限星界，通過第二關解鎖"
+      : domainRemaining > 0 ? "領域展開中"
+      : domainCooldown > 0 ? `領域展開冷卻中，剩餘 ${Math.ceil(domainCooldown)} 秒`
+      : "施放領域展開・無限星界，快捷鍵 K");
+    domainButton.style.setProperty("--domain-charge", `${Math.round(domainCooldown / domainCooldownSeconds * 100)}%`);
+  }
+
+  function activateDomain() {
+    if (state !== "playing" || menuOpen() || !domainUnlocked ||
+        domainRemaining > 0 || domainCooldown > 0) return;
+    sound.unlock();
+    sound.domain();
+    domainRemaining = domainDuration;
+    domainCooldown = domainCooldownSeconds;
+    domainPulse = 0.25;
+    announceStatus("領域展開・無限星界，持續四秒");
+    burst(player.x + player.w / 2, player.y + player.h / 2,
+      ["#a9a3ff", "#e4baff", "#80f9ed"], 18);
+    updateDomainButton();
+    saveRun();
+  }
+
+  function updateDomain(dt) {
+    if (domainCooldown > 0) domainCooldown = Math.max(0, domainCooldown - dt);
+    if (domainRemaining > 0) {
+      domainRemaining = Math.max(0, domainRemaining - dt);
+      domainPulse -= dt;
+      if (domainPulse <= 0 && domainRemaining > 0) {
+        domainPulse += 0.8;
+        // Ordinary enemies on screen freeze and take damage; Bosses do not.
+        for (const enemy of [...enemies]) {
+          if (enemy.type !== "boss" && enemy.x + enemy.w >= camera &&
+              enemy.x <= camera + baseViewWidth) damageEnemy(enemy, 1, "#b4a9ff");
+        }
+      }
+    }
+    updateDomainButton();
+  }
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   // followX is the ordinary side-scrolling view before framing the boss arena.
@@ -536,6 +593,7 @@
     if (!integer(r.score, 0, Number.MAX_SAFE_INTEGER) || !integer(r.base, 0, r.score) ||
         !integer(r.hp, 1, maxHealth) || !idsValid(r.guns, weapons.length) ||
         !r.guns.includes(0) || !r.guns.includes(r.weapon) ||
+        (r.domainCd != null && (!Number.isFinite(r.domainCd) || r.domainCd < 0 || r.domainCd > 60)) ||
         !idsValid(r.picked, map.gems.length) || !idsValid(r.beaten, map.enemies.length + Number(!!map.arena)) ||
         !map.platforms.some(([x,y]) => y === groundY && Math.max(64, x + 13) === r.floor)) return null;
     return r;
@@ -554,7 +612,7 @@
     bestLabel.textContent = String(best);
   }
   function checkpoint(stage, base, hp) {
-    return { v: 1, stage, base, score: base, hp, guns: [...unlocked], weapon: weaponIndex,
+    return { v: 1, stage, base, score: base, hp, domainCd: domainCooldown, guns: [...unlocked], weapon: weaponIndex,
       floor: 64, picked: [], beaten: [] };
   }
   function saveRun() {
@@ -573,6 +631,9 @@
     health = r.hp;
     unlocked = testLevel ? new Set(weapons.keys()) : new Set(r.guns);
     weaponIndex = r.weapon;
+    domainUnlocked = r.stage >= 2 || readLocal("domain") === true;
+    if (r.stage >= 2) writeLocal("domain", true);
+    domainCooldown = r.domainCd ?? 0;
     startLevel(r.stage, true);
     score = r.score;
     picked = new Set(r.picked);
@@ -680,7 +741,7 @@
     level = levels[index];
     sound.setTrack(level.theme);
     if (testLevel) testLevel.value = String(index);
-    stageEntry = { score };
+    stageEntry = { score, domainCooldown };
     picked = new Set();
     beaten = new Set();
     pendingSave = false;
@@ -713,6 +774,13 @@
     arcs = [];
     unlockUntil = 0;
     supplyMessage.hidden = true;
+    if (index === 2 && domainUnlocked) {
+      supplyMessage.textContent = "新技能：領域展開・無限星界｜K 鍵或星界按鈕";
+      supplyMessage.hidden = false;
+      unlockUntil = 3.5;
+    }
+    domainRemaining = 0;
+    domainPulse = 0;
     particles = [];
     resetCamera();
     shotIndex = 0;
@@ -724,6 +792,7 @@
     document.title = `Pixel Blaster｜${level.name}`;
     updateProgress();
     updateHud();
+    updateDomainButton();
     if (focus) {
       canvas.focus({ preventScroll: true });
       announceStatus(`第 ${index + 1} 關，${level.name}`);
@@ -735,6 +804,10 @@
     health = maxHealth;
     unlocked = testLevel ? new Set(weapons.keys()) : new Set([0]);
     weaponIndex = 0;
+    domainUnlocked = readLocal("domain") === true;
+    domainRemaining = 0;
+    domainCooldown = 0;
+    domainPulse = 0;
     startLevel(0, focus);
     updateWeapons();
   }
@@ -749,6 +822,7 @@
   function retryLevel() {
     if (state !== "lost") return;
     score = stageEntry.score;
+    domainCooldown = stageEntry.domainCooldown;
     health = maxHealth;
     startLevel(levelIndex, true);
     updateWeapons();
@@ -780,6 +854,11 @@
     }
     const action = keyActions[event.code];
     if (!action || state !== "playing") return;
+    if (action === "domain") {
+      event.preventDefault();
+      if (!event.repeat) activateDomain();
+      return;
+    }
     if (event.code === "Space" && event.target.closest?.("button")) return;
     if (event.target.closest?.("button")) canvas.focus({ preventScroll: true });
     event.preventDefault();
@@ -852,6 +931,7 @@
   continuePanel.addEventListener("cancel", event => { event.preventDefault(); resumeRun(); });
   document.querySelector("#continue-game").addEventListener("click", resumeRun);
   document.querySelector("#new-game").addEventListener("click", requestRestart);
+  domainButton.addEventListener("click", activateDomain);
   settingsToggle.addEventListener("click", () => openPanel(settingsPanel));
   weaponToggle.addEventListener("click", () => openPanel(weaponPanel));
   for (const close of document.querySelectorAll("[data-close]")) {
@@ -887,6 +967,10 @@
       health = maxHealth;
       score = 0;
       if (settingsPanel.open) settingsPanel.close();
+      if (index >= 2) {
+        domainUnlocked = true;
+        writeLocal("domain", true);
+      }
       startLevel(index, true);
       saveRun();
     });
@@ -907,6 +991,12 @@
   canvas.tabIndex = -1;
 
   function finish(won) {
+    const learned = won && levelIndex === 1 && !domainUnlocked;
+    if (learned) {
+      domainUnlocked = true;
+      writeLocal("domain", true);
+      announceStatus("新技能解鎖：領域展開・無限星界");
+    }
     const more = won && levelIndex + 1 < levels.length;
     state = more ? "cleared" : won ? "won" : "lost";
     clearInputs();
@@ -914,7 +1004,7 @@
     sound.finish(won);
     resultTitle.textContent = more ? `${level.name}通過！` : won ? "五關全破！" : "冒險暫告一段落";
     resultDetail.textContent = more
-      ? `累計 ${score} 分 · 下一關 ${levels[levelIndex + 1].name}`
+      ? `累計 ${score} 分 · 下一關 ${levels[levelIndex + 1].name}${learned ? " · 已習得領域展開・無限星界！" : ""}`
       : `本次分數 ${score}`;
     updateProgress();
     if (allowSave) {
@@ -928,6 +1018,7 @@
     replay.hidden = more || (!won && levelIndex === 0);
     nextButton.hidden = !more;
     result.hidden = false;
+    updateDomainButton();
     resultDetail.textContent += ` · 最高分 ${best}`;
     resultTitle.focus({ preventScroll: true });
   }
@@ -980,6 +1071,7 @@
   function update(dt) {
     previousPlayerX = player.x;
     time += dt;
+    updateDomain(dt);
     const movement = Number(held("right")) - Number(held("left"));
     if (movement) player.facing = movement;
     const targetSpeed = movement * 140;
@@ -1047,11 +1139,14 @@
       if (state !== "playing") return;
     }
 
-    enemies.forEach(enemy => updateEnemy(enemy, dt));
+    enemies.forEach(enemy => {
+      if (domainRemaining > 0 && enemy.type !== "boss") return;
+      updateEnemy(enemy, dt * (domainRemaining > 0 ? 0.6 : 1));
+    });
     updateWeapon();
     shots = shots.filter(shot => advanceShot(shot, dt));
     enemyShots = enemyShots.filter(shot => {
-      if (!moveShot(shot, dt)) return false;
+      if (!moveShot(shot, dt * (domainRemaining > 0 ? 0.45 : 1))) return false;
       if (!intersects(player, shot)) return true;
       hurt(shot);
       return false;
@@ -2028,12 +2123,35 @@
     sparkle(toX, toY, "#ccffff", 4);
   }
 
+  function domainBackdrop() {
+    if (domainRemaining <= 0) return;
+    ctx.save();
+    ctx.fillStyle = "rgba(24, 18, 71, 0.69)";
+    ctx.fillRect(0, 0, width, height);
+    const drift = reduceMotion ? 0 : time * 11;
+    for (let i = 0; i < 44; i++) {
+      const x = (i * 73 + Math.floor(drift * (i % 3 + 1))) % width;
+      const y = (i * 43 + 19) % 188;
+      rect(x, y, i % 5 === 0 ? 3 : 2, 2, ["#f6deff", "#a3efff", "#e0c5ff"][i % 3]);
+    }
+    const cx = Math.round(player.x + player.w / 2 - camera);
+    const cy = Math.round(player.y + player.h / 2);
+    ctx.strokeStyle = "#c0a8ff";
+    ctx.globalAlpha = 0.45;
+    for (let i = 0; i < 3; i++) {
+      const radius = 27 + i * 15 + (reduceMotion ? 0 : Math.floor((time * 8) % 13));
+      ctx.strokeRect(cx - radius, cy - radius, radius * 2, radius * 2);
+    }
+    ctx.restore();
+  }
+
   function render(alpha = 1) {
     if (normalViewWidth() !== baseViewWidth) resetCamera();
     const drawX = previousPlayerX + (player.x - previousPlayerX) * alpha;
     frameCamera(drawX);
     terrainPalette = sceneryPalettes[level.theme];
     scenery();
+    domainBackdrop();
     ctx.save();
     ctx.translate(-Math.round(camera), 0);
     for (const [left, right] of pits) {
