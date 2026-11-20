@@ -95,6 +95,9 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
 .weapon-select button:disabled { background: #f0e8db; border-color: #cdc2b3; color: #6d6470; }
 .weapon-select button:disabled::after { content: "🔒"; font-size: .7rem; margin-left: auto; }
 .account-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 12px; padding-top: 8px; border-top: 1px solid #cfc4b3; font-size: .88rem; }
+.developer-controls { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.developer-controls button { padding: 4px 8px; }
+.developer-controls [aria-pressed="true"] { background: #c9efd2; }
 .account-panel a { display: inline-flex; align-items: center; min-height: 44px; color: #57367d; }
 .account-panel select { min-height: 44px; max-width: 100%; }
 @media (any-pointer: coarse) {
@@ -164,6 +167,7 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
 .settings-list #restart { grid-column: auto; }
 #boss-hud { background: #302b40; color: #fff9e9; border-color: #181629; max-width: 86%; }
 #boss-phase { color: #ffdf91; }
+#boss-domain { display: block; color: #d4c9ff; font-size: .75rem; }
 #boss-hud[data-mode="recover"] #boss-phase { color: #a1eed2; }
 #boss-warning { color: #fff; display: block; text-align: left; line-height: 1.3; font-size: .9rem; }
 #screen[data-protected="true"] .hearts { outline: 1px solid #8df1e6; outline-offset: 2px; }
@@ -175,27 +179,31 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
 
 #storage-notice { margin-bottom: 10px; font-size: .88rem; color: #853844; }
 
-#domain-skill {
+.skill-controls { display: flex; gap: 4px; margin-left: auto; pointer-events: auto; }
+.skill-controls button {
   display: grid; place-content: center; min-width: 76px; min-height: 44px; gap: 2px;
-  margin-left: auto; padding: 4px 8px; color: #514964; background: #e8e2ec;
+  padding: 4px 8px; color: #514964; background: #e8e2ec;
   border: 2px solid #615776; box-shadow: inset 0 -3px #50435b29; font-size: .8rem;
   line-height: 1.05; pointer-events: auto; touch-action: none; user-select: none;
 }
-#domain-skill b { font: bold .72rem/1.1 ui-monospace,monospace; }
+#domain-skill b, #ultimate-skill b { font: bold .72rem/1.1 ui-monospace,monospace; }
 #domain-skill[data-ready="true"] { background: #e1d1ff; color: #38224e; border-color: #72519a; box-shadow: inset 0 -3px #ac86cf; }
-#domain-skill + .gear { margin-left: 0; }
+.skill-controls + .gear { margin-left: 0; }
+#ultimate-skill[data-ready="true"] { background: #e1d1ff; border-color: #72519a; color: #38224e; }
+#ultimate-progress { width: 100%; height: 4px; accent-color: #8751c3; }
 #boss-hud[data-mode="transition"] { border-color: #ffc779; }
 #boss-hud[data-mode="open"] #boss-phase { color: #a8ffdb; }
 @media (orientation: portrait) and (any-pointer: coarse) {
   .masthead { grid-template-columns: 1fr auto auto; }
-  #domain-skill { grid-column: 2; grid-row: 1/3; }
-  .gear { grid-column: 3; }
+  .masthead h1 { grid-column: 1/3; }
+  .skill-controls { grid-column: 2/4; grid-row: 2; }
+  .gear { grid-column: 3; grid-row: 1; }
 }
 @media (orientation: landscape) and (any-pointer: coarse) {
-  #domain-skill { position: absolute; top: 0; right: 50px; margin: 0; }
+  .skill-controls { position: absolute; top: 0; right: 50px; margin: 0; }
 }
 @media (orientation: landscape) and (any-pointer: coarse) and (min-height: 640px) and (max-aspect-ratio: 3/2) {
-  #domain-skill { position: static; margin-left: auto; }
+  .skill-controls { position: static; margin-left: auto; }
 }
 .screen[data-arena="true"] #supply-message { visibility: hidden; }
 
@@ -205,3 +213,11 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
 .character-cards canvas { width: 72px; height: 72px; background: transparent; }
 .character-cards small { font-weight: 650; }
 .current-character { color: #534074; }
+
+@media (max-width: 600px) and (orientation: landscape) and (any-pointer: coarse) {
+  .masthead .stage { margin-right: 88px; }
+}
+@media (max-width: 360px) and (orientation: portrait) and (any-pointer: coarse) {
+  .skill-controls button { min-width: 62px; padding-inline: 4px; }
+  .masthead .stage { gap: 4px; }
+}

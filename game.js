@@ -255,6 +255,10 @@
         tone("sine", 588, 590, 0.58, 0.19, 0.32);
         tone("sine", 880, 880, 0.46, 0.31, 0.19);
       },
+      ultimate(astral) {
+        tone("triangle", astral ? 540 : 220, 75, 0.4, 0, 0.35);
+        tone(astral ? "sine" : "sawtooth", astral ? 320 : 840, 125, 0.23, 0.055, 0.17);
+      },
       temple() {
         tone("triangle", 133, 62, 0.52, 0, 0.33);
         tone("sawtooth", 540, 170, 0.14, 0.08, 0.14);
@@ -476,6 +480,7 @@
   const bossHealth = document.querySelector("#boss-health");
   const bossWarning = document.querySelector("#boss-warning");
   const testLevel = document.querySelector("#test-level");
+  let testInvincible = false, testNoCooldown = false, testUltimateNoCooldown = false;
   const nextButton = document.querySelector("#next-level");
   const levelNumber = document.querySelector("#level-number");
   const levelName = document.querySelector("#level-name");
@@ -499,6 +504,7 @@
   const stageProgress = document.querySelector("#stage-progress");
   const screen = document.querySelector("#screen");
   const bossPhase = document.querySelector("#boss-phase");
+  const bossDomain = document.querySelector("#boss-domain");
   const portrait = matchMedia("(orientation: portrait) and (any-pointer: coarse) and (max-width: 600px)");
   const characterPanel = document.querySelector("#character-panel");
   const characterCancel = document.querySelector("#cancel-character");
@@ -519,14 +525,22 @@
   const domainName = document.querySelector("#domain-name");
   const domainDuration = 4 * 60;
   const domainRecovery = 60 * 60;
+  const ultimateChargeTime = 5 * 60;
+  const ultimateRecovery = 120 * 60;
+  const ultimateInterruptRecovery = 15 * 60;
+  const ultimateDamage = 24;
+  const ultimateButton = document.querySelector("#ultimate-skill");
+  const ultimateStatus = document.querySelector("#ultimate-status");
+  const ultimateProgress = document.querySelector("#ultimate-progress");
+  let ultimateCharge = 0, ultimateCooldown = 0, ultimateOrb, ultimateSlash;
   const characters = {
     astral: {
-      name: "星界術師", skill: "無限星界", freeze: true, bossPace: 0.70,
+      name: "星界術師", skill: "無限星界", ultimate: "虛空・紫星", freeze: true, bossPace: 0.50,
       pulse: 60, damage: 1, bossDamage: 1, color: "#c7c2ff",
       tip: "定住附近敵人 4 秒", backdrop: domainBackdrop, sound: sound.domain
     },
     crimson: {
-      name: "赤刃咒師", skill: "赤刃神殿", freeze: false, bossPace: 1,
+      name: "赤刃咒師", skill: "赤刃神殿", ultimate: "次元斷界", freeze: false, bossPace: 0.75,
       pulse: 30, damage: 2, bossDamage: 0.5, color: "#ff8489",
       tip: "持續斬擊附近敵人 4 秒", backdrop: templeBackdrop, sound: sound.temple
     }
@@ -535,23 +549,27 @@
   const bossName = document.querySelector("#boss-name");
 
   function refreshDomain() {
-    const seconds = Math.ceil(domainCooldown / 60);
-    const label = !domainUnlocked ? "鎖定" : seconds ? seconds + " 秒" : "READY";
+    const seconds = testNoCooldown ? 0 : Math.ceil(domainCooldown / 60);
+    const ready = domainUnlocked && domainTicks === 0 && seconds === 0;
+    const label = !domainUnlocked ? "鎖定" : testNoCooldown
+      ? (domainTicks > 0 ? "施放中" : "無冷卻")
+      : seconds ? seconds + " 秒" : "READY";
     const { skill } = characters[characterId];
     if (domainStatus.textContent === label && domainName.textContent === skill) return;
     domainName.textContent = skill;
     domainStatus.textContent = label;
-    domainButton.dataset.ready = String(domainUnlocked && !seconds);
-    domainButton.setAttribute("aria-disabled", String(!domainUnlocked || seconds > 0));
+    domainButton.dataset.ready = String(ready);
+    domainButton.setAttribute("aria-disabled", String(!ready));
     domainButton.title = domainUnlocked ? `K · ${skill} · ${label}` : "通過暮光菇林後解鎖";
   }
 
   function castDomain() {
-    if (state !== "playing" || menuOpen() || !domainUnlocked || domainTicks > 0 || domainCooldown > 0) return;
+    if (state !== "playing" || menuOpen() || !domainUnlocked || domainTicks > 0 || (!testNoCooldown && domainCooldown > 0)) return;
     activeDomain = characters[characterId];
     domainTicks = domainDuration;
     domainCooldown = domainRecovery;
     activeDomain.sound();
+    if (boss && !bossHud.hidden) updateBossDomain(boss);
     refreshDomain();
     announceStatus(`領域展開 · ${activeDomain.skill}`);
     saveRun();
@@ -573,7 +591,11 @@
           }
         }
       }
-      if (--domainTicks === 0) activeDomain = null;
+      if (--domainTicks === 0) {
+        activeDomain = null;
+        refreshDomain();
+        if (boss && !bossHud.hidden) updateBossDomain(boss);
+      }
     }
     if (domainCooldown > 0) {
       domainCooldown--;
@@ -582,6 +604,75 @@
         pendingSave = true;
       }
     }
+  }
+
+  function refreshUltimate() {
+    const charging = ultimateCharge > 0;
+    const ready = !charging && (testUltimateNoCooldown || ultimateCooldown === 0);
+    const label = charging ? `${(Math.ceil(ultimateCharge / 6) / 10).toFixed(1)}s`
+      : testUltimateNoCooldown ? "無冷卻" : ready ? "READY" : `${Math.ceil(ultimateCooldown / 60)} 秒`;
+    const { ultimate } = characters[characterId];
+    if (ultimateStatus.textContent !== label) ultimateStatus.textContent = label;
+    if (ultimateProgress.hidden !== !charging) ultimateProgress.hidden = !charging;
+    if (charging) ultimateProgress.value = ultimateCharge;
+    if (ultimateButton.dataset.ready !== String(ready)) {
+      ultimateButton.dataset.ready = String(ready);
+      ultimateButton.setAttribute("aria-disabled", String(!ready));
+    }
+    const title = `L · ${ultimate}`;
+    if (ultimateButton.title !== title) {
+      ultimateButton.title = title;
+      ultimateButton.setAttribute("aria-label", `必殺技：${ultimate}`);
+    }
+  }
+
+  function beginUltimate() {
+    if (state !== "playing" || menuOpen() || ultimateCharge || (!testUltimateNoCooldown && ultimateCooldown > 0)) return;
+    ultimateCharge = ultimateChargeTime;
+    player.vx = clamp(player.vx, -70, 70);
+    beam = null;
+    arcs = [];
+    sound.sustain(null);
+    refreshUltimate();
+    announceStatus(`${characters[characterId].ultimate} · 開始蓄力`);
+    saveRun();
+  }
+
+  function cancelUltimate() {
+    if (!ultimateCharge) return;
+    ultimateCharge = 0;
+    ultimateCooldown = ultimateInterruptRecovery;
+    pendingSave = true;
+    refreshUltimate();
+  }
+
+  function clearUltimate() {
+    cancelUltimate();
+    ultimateOrb = null;
+    ultimateSlash = null;
+  }
+
+  function releaseUltimate() {
+    ultimateCooldown = ultimateRecovery;
+    const direction = player.facing;
+    const x = player.x + (direction > 0 ? player.w : 0);
+    const y = player.y + 13;
+    if (characterId === "astral") {
+      ultimateOrb = { x: direction > 0 ? x : x - 40, y: y - 18, w: 40, h: 36,
+        vx: direction * 385, vy: 0, life: 1.45, hits: Infinity, damage: ultimateDamage,
+        struck: new Set(), color: "#d69bff" };
+    } else {
+      ultimateSlash = { x: direction > 0 ? x : x - 300, y: y - 49,
+        w: 300, h: 98, direction, life: 0.32 };
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
+        if (intersects(ultimateSlash, enemy)) damageEnemy(enemy, ultimateDamage, "#ff978c", direction);
+      }
+    }
+    sound.ultimate(characterId === "astral");
+    refreshUltimate();
+    announceStatus(characters[characterId].ultimate);
+    pendingSave = true;
   }
 
   function showDomainNotice() {
@@ -682,7 +773,8 @@
   }
   function checkpoint(stage, base, hp) {
     return { v: 1, stage, base, score: base, hp, guns: [...unlocked], weapon: weaponIndex,
-      domain: stage >= 2, cooldown: domainCooldown, domainNotice, floor: 64, picked: [], beaten: [] };
+      domain: stage >= 2, cooldown: domainCooldown, domainNotice,
+      ultimateCooldown: ultimateCharge ? ultimateInterruptRecovery : ultimateCooldown, floor: 64, picked: [], beaten: [] };
   }
   function saveRun() {
     if (!allowSave || state !== "playing") return;
@@ -697,6 +789,7 @@
     continuePanel.close();
     allowSave = true;
     domainCooldown = integer(r.cooldown, 0, 3600) ? r.cooldown : 0;
+    ultimateCooldown = integer(r.ultimateCooldown, 0, ultimateRecovery) ? r.ultimateCooldown : 0;
     domainNotice = r.stage === 2 && (r.domainNotice === true || r.domain === undefined);
     score = r.base;
     health = r.hp;
@@ -804,6 +897,7 @@
   }
 
   function startLevel(index, focus = false) {
+    clearUltimate();
     clearInputs();
     levelIndex = index;
     level = levels[index];
@@ -852,6 +946,7 @@
     shotIndex = 0;
     time = 0;
     state = "playing";
+    refreshUltimate();
     refreshDomain();
     showDomainNotice();
     result.hidden = true;
@@ -867,6 +962,8 @@
   }
 
   function reset(focus = false) {
+    clearUltimate();
+    ultimateCooldown = 0;
     domainCooldown = 0;
     domainNotice = false;
     score = 0;
@@ -905,6 +1002,11 @@
 
   window.addEventListener("keydown", event => {
     if (menuOpen() || event.ctrlKey || event.altKey || event.metaKey || event.target.closest?.("select, a")) return;
+    if (event.code === "KeyL") {
+      event.preventDefault();
+      if (!event.repeat) { sound.unlock(); beginUltimate(); }
+      return;
+    }
     if (event.code === "KeyK") {
       event.preventDefault();
       if (!event.repeat) { sound.unlock(); castDomain(); }
@@ -961,6 +1063,7 @@
       button.classList.add("pressed");
       if (button.dataset.action === "jump") jumpBuffer = 0.13;
       if (button.dataset.action === "domain") castDomain();
+      if (button.dataset.action === "ultimate") beginUltimate();
     });
 
     button.addEventListener("pointerup", event => { sound.unlock(); releaseTouch(event); });
@@ -970,6 +1073,9 @@
     });
     button.addEventListener("contextmenu", event => event.preventDefault());
   }
+  ultimateButton.addEventListener("click", event => {
+    if (event.detail === 0) { sound.unlock(); beginUltimate(); }
+  });
   domainButton.addEventListener("click", event => {
     if (event.detail === 0) { sound.unlock(); castDomain(); }
   });
@@ -1022,7 +1128,11 @@
   });
   for (const card of characterCards) {
     card.addEventListener("click", () => {
-      characterId = card.dataset.character;
+      const nextCharacter = card.dataset.character;
+      if (characterId !== nextCharacter) clearUltimate();
+      characterId = nextCharacter;
+      refreshUltimate();
+      if (pendingSave) saveRun();
       writeLocal("character", characterId);
       characterPanel.close();
       refreshDomain();
@@ -1062,6 +1172,20 @@
     saveRun();
   });
   if (testLevel) {
+    for (const [id, label, toggle] of [
+      ["test-invincible", "無敵", () => (testInvincible = !testInvincible)],
+      ["test-domain-cooldown", "領域無冷卻", () => (testNoCooldown = !testNoCooldown)],
+      ["test-ultimate-cooldown", "必殺技無冷卻", () => (testUltimateNoCooldown = !testUltimateNoCooldown)]
+    ]) {
+      const button = document.querySelector("#" + id);
+      button?.addEventListener("click", () => {
+        const enabled = toggle();
+        button.setAttribute("aria-pressed", String(enabled));
+        button.textContent = `${label}｜${enabled ? "開" : "關"}`;
+        refreshDomain();
+        refreshUltimate();
+      });
+    }
     levels.forEach((level, index) => testLevel.add(new Option(`${index + 1} · ${level.name}`, String(index))));
     testLevel.addEventListener("change", () => {
       const index = Number(testLevel.value);
@@ -1089,6 +1213,7 @@
   canvas.tabIndex = -1;
 
   function finish(won) {
+    clearUltimate();
     const more = won && levelIndex + 1 < levels.length;
     if (won && levelIndex === 1) domainNotice = true;
     state = more ? "cleared" : won ? "won" : "lost";
@@ -1134,12 +1259,24 @@
     }
   }
 
+  function respawnPlayer() {
+    Object.assign(player, { x: player.respawn, y: groundY - player.h, vx: 0,
+      vy: 0, grounded: true, grace: 0 });
+    resetCamera();
+  }
+
   function hurt(enemy) {
     if (state !== "playing" || (enemy && player.immunity > 0)) return;
+    if (testInvincible) {
+      if (!enemy) respawnPlayer();
+      return;
+    }
+    const interrupted = ultimateCharge > 0;
+    cancelUltimate();
     health--;
     pendingSave = true;
     updateHud();
-    announceStatus(`剩餘 ${health} 點生命`);
+    announceStatus(`${interrupted ? "蓄力中斷 · " : ""}剩餘 ${health} 點生命`);
     if (health === 0) {
       finish(false);
       return;
@@ -1154,18 +1291,20 @@
       player.grace = 0;
       burst(player.x + 8, player.y + 10, ["#ff83aa", "#fff1c7"]);
     } else {
-      Object.assign(player, { x: player.respawn, y: groundY - player.h, vx: 0,
-        vy: 0, grounded: true, grace: 0 });
-      resetCamera();
+      respawnPlayer();
     }
   }
 
   function update(dt) {
+    if (ultimateCooldown > 0 && --ultimateCooldown % 60 === 0) {
+      refreshUltimate();
+      pendingSave = true;
+    }
     previousPlayerX = player.x;
     time += dt;
     const movement = Number(held("right")) - Number(held("left"));
     if (movement) player.facing = movement;
-    const targetSpeed = movement * 140;
+    const targetSpeed = movement * (ultimateCharge > 0 ? 70 : 140);
     player.vx += clamp(targetSpeed - player.vx, -1500 * dt, 1500 * dt);
     player.cooldown = Math.max(0, player.cooldown - dt);
     if (player.immunity > 0) {
@@ -1235,6 +1374,8 @@
     if (crystalDefeat) crystalDefeat.life -= dt;
     updateWeapon();
     shots = shots.filter(shot => advanceShot(shot, dt));
+    if (ultimateOrb && !advanceShot(ultimateOrb, dt)) ultimateOrb = null;
+    if (ultimateSlash && (ultimateSlash.life -= dt) <= 0) ultimateSlash = null;
     enemyShots = enemyShots.filter(shot => {
       if (!moveShot(shot, dt)) return false;
       if (shot.delay > 0 || !intersects(player, shot)) return true;
@@ -1254,6 +1395,10 @@
 
     const contact = enemies.find(enemy => intersects(player, enemy));
     if (contact) hurt(contact);
+    if (ultimateCharge > 0) {
+      if (--ultimateCharge === 0) releaseUltimate();
+      else refreshUltimate();
+    }
     if (state === "playing" && !(boss?.hp > 0) && player.x + player.w >= level.goal && player.y + player.h >= groundY - 57) {
       finish(true);
     }
@@ -1286,7 +1431,7 @@
   function updateWeapon() {
     beam = null;
     arcs = [];
-    const firing = held("fire");
+    const firing = !ultimateCharge && held("fire");
     const weapon = weapons[weaponIndex];
     const continuous = weapon.kind === "beam" || weapon.kind === "lightning";
     sound.sustain(firing && continuous ? weapon.kind : null);
@@ -1532,7 +1677,18 @@
     updateBossHud(enemy);
   }
 
+  function updateBossDomain(enemy) {
+    const affected = enemy.hp > 0 && enemy.mode !== "dormant" && inDomain(enemy);
+    bossDomain.hidden = !affected;
+    if (affected) {
+      const percent = Math.round((1 - activeDomain.bossPace) * 100);
+      const label = `領域影響 · 出招減速 ${percent}%`;
+      if (bossDomain.textContent !== label) bossDomain.textContent = label;
+    }
+  }
+
   function updateBossHud(enemy) {
+    updateBossDomain(enemy);
     bossHealth.value = Math.max(0, enemy.hp);
     let phase, warning;
     if (enemy.mode === "intro") {
@@ -2541,6 +2697,56 @@
     sparkle(toX, toY, "#ccffff", 4);
   }
 
+  function ultimateArt() {
+    ctx.save();
+    if (ultimateCharge) {
+      const progress = 1 - ultimateCharge / ultimateChargeTime;
+      const direction = player.facing;
+      const x = player.x + player.w / 2 + direction * (14 + progress * 10);
+      const y = player.y + 13;
+      if (characterId === "astral") {
+        const radius = 3 + Math.floor(progress * 15);
+        const separation = 17 * (1 - progress);
+        rect(x - radius, y - radius / 2, radius * 2, radius, "#8b53bdad");
+        sparkle(x - separation, y - separation * 0.65, "#79dcff", 5);
+        sparkle(x + separation, y + separation * 0.65, "#ff8c9f", 5);
+        sparkle(x, y, "#dba5ff", radius);
+      } else {
+        // The rift trembles locally. Terrain, enemies and the HUD stay anchored.
+        const tremor = !reduceMotion && progress > 0.45 ? Math.round(Math.sin(time * 19)) : 0;
+        const extent = Math.floor(18 + progress * 105);
+        for (let d = 0; d < extent; d += 6) {
+          const px = x + direction * d;
+          const py = y + tremor + (d % 18 === 0 ? 2 : -2) - d * 0.16;
+          rect(px, py - 3, 7, 7, "#371220d9");
+          rect(px, py, 6, 2, "#ff7d889d");
+        }
+      }
+    }
+    if (ultimateOrb) {
+      const { x, y, w, h, vx } = ultimateOrb;
+      const front = vx > 0;
+      const center = x + w / 2, middle = y + h / 2;
+      rect(front ? x - 20 : x + 20, middle - 6, 42, 12, "#984bcb93");
+      rect(x + 3, y + 5, w - 6, h - 10, "#8548bc");
+      rect(x + 10, y, w - 20, h, "#a46be2");
+      rect(x + 7, y + 7, w - 14, h - 14, "#c28aef");
+      sparkle(center, middle, "#eed8ff", 10);
+    }
+    if (ultimateSlash) {
+      const { x, y, w, h, direction, life } = ultimateSlash;
+      ctx.globalAlpha = Math.min(0.75, life / 0.32);
+      for (let i = 0; i < w; i += 8) {
+        const px = direction > 0 ? x + i : x + w - i - 8;
+        const py = y + h * 0.73 - i / w * h * 0.53;
+        rect(px, py - 11, 8, 23, "#401727");
+        rect(px, py - 6, 8, 13, "#e64f65");
+        rect(px, py - 1, 8, 3, "#ffd0ad");
+      }
+    }
+    ctx.restore();
+  }
+
   function render(alpha = 1) {
     if (normalViewWidth() !== baseViewWidth) resetCamera();
     const drawX = previousPlayerX + (player.x - previousPlayerX) * alpha;
@@ -2562,6 +2768,7 @@
       if (platform.weapon === undefined) platformArt(platform);
     }
     terrainPalette = undefined;
+    ultimateArt();
     if (boss?.hp > 0 && boss.mode !== "dormant") barrageGuide();
     bricks.forEach(brickArt);
     if (camera < 50) sign(27);
