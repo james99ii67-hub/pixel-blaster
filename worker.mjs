@@ -9,7 +9,12 @@ function accountPanel(request, env) {
   const testerEmail = env.PIXEL_TESTER_EMAIL?.trim().toLowerCase();
   const tester = Boolean(testerEmail && email === testerEmail);
   const status = tester
-    ? '<strong>測試帳號 · 全武器已解鎖</strong><label>測試關卡<select id="test-level"></select></label>'
+    ? `<strong>測試帳號 · 全武器已解鎖</strong>
+      <label>測試關卡<select id="test-level"></select></label>
+      <div class="developer-controls" role="group" aria-label="開發測試">
+        <button id="test-invincible" type="button" aria-label="無敵" aria-pressed="false">無敵｜關</button>
+        <button id="test-domain-cooldown" type="button" aria-label="領域無冷卻" aria-pressed="false">領域無冷卻｜關</button>
+      </div>`
     : '<span>已登入 · 一般玩家</span>';
   return `<nav class="account-panel" aria-label="帳號">${status}<a href="/signout-with-chatgpt" target="_top">登出</a></nav>`;
 }
