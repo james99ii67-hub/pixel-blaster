@@ -198,3 +198,10 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
   #domain-skill { position: static; margin-left: auto; }
 }
 .screen[data-arena="true"] #supply-message { visibility: hidden; }
+
+.character-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.character-cards button { display: grid; justify-items: center; align-content: start; gap: 4px; padding: 8px 4px; background: #e6f3ff; }
+.character-cards button[data-character="crimson"] { background: #fbe1e4; }
+.character-cards canvas { width: 72px; height: 72px; background: transparent; }
+.character-cards small { font-weight: 650; }
+.current-character { color: #534074; }
