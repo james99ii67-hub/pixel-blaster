@@ -499,6 +499,7 @@
   const stageProgress = document.querySelector("#stage-progress");
   const screen = document.querySelector("#screen");
   const bossPhase = document.querySelector("#boss-phase");
+  const bossDomain = document.querySelector("#boss-domain");
   const portrait = matchMedia("(orientation: portrait) and (any-pointer: coarse) and (max-width: 600px)");
   const characterPanel = document.querySelector("#character-panel");
   const characterCancel = document.querySelector("#cancel-character");
@@ -521,12 +522,12 @@
   const domainRecovery = 60 * 60;
   const characters = {
     astral: {
-      name: "星界術師", skill: "無限星界", freeze: true, bossPace: 0.70,
+      name: "星界術師", skill: "無限星界", freeze: true, bossPace: 0.50,
       pulse: 60, damage: 1, bossDamage: 1, color: "#c7c2ff",
       tip: "定住附近敵人 4 秒", backdrop: domainBackdrop, sound: sound.domain
     },
     crimson: {
-      name: "赤刃咒師", skill: "赤刃神殿", freeze: false, bossPace: 1,
+      name: "赤刃咒師", skill: "赤刃神殿", freeze: false, bossPace: 0.75,
       pulse: 30, damage: 2, bossDamage: 0.5, color: "#ff8489",
       tip: "持續斬擊附近敵人 4 秒", backdrop: templeBackdrop, sound: sound.temple
     }
@@ -552,6 +553,7 @@
     domainTicks = domainDuration;
     domainCooldown = domainRecovery;
     activeDomain.sound();
+    if (boss && !bossHud.hidden) updateBossDomain(boss);
     refreshDomain();
     announceStatus(`領域展開 · ${activeDomain.skill}`);
     saveRun();
@@ -573,7 +575,10 @@
           }
         }
       }
-      if (--domainTicks === 0) activeDomain = null;
+      if (--domainTicks === 0) {
+        activeDomain = null;
+        if (boss && !bossHud.hidden) updateBossDomain(boss);
+      }
     }
     if (domainCooldown > 0) {
       domainCooldown--;
@@ -1532,7 +1537,18 @@
     updateBossHud(enemy);
   }
 
+  function updateBossDomain(enemy) {
+    const affected = enemy.hp > 0 && enemy.mode !== "dormant" && inDomain(enemy);
+    bossDomain.hidden = !affected;
+    if (affected) {
+      const percent = Math.round((1 - activeDomain.bossPace) * 100);
+      const label = `領域影響 · 出招減速 ${percent}%`;
+      if (bossDomain.textContent !== label) bossDomain.textContent = label;
+    }
+  }
+
   function updateBossHud(enemy) {
+    updateBossDomain(enemy);
     bossHealth.value = Math.max(0, enemy.hp);
     let phase, warning;
     if (enemy.mode === "intro") {
