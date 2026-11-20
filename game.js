@@ -476,6 +476,7 @@
   const bossHealth = document.querySelector("#boss-health");
   const bossWarning = document.querySelector("#boss-warning");
   const testLevel = document.querySelector("#test-level");
+  let testInvincible = false, testNoCooldown = false;
   const nextButton = document.querySelector("#next-level");
   const levelNumber = document.querySelector("#level-number");
   const levelName = document.querySelector("#level-name");
@@ -536,19 +537,22 @@
   const bossName = document.querySelector("#boss-name");
 
   function refreshDomain() {
-    const seconds = Math.ceil(domainCooldown / 60);
-    const label = !domainUnlocked ? "鎖定" : seconds ? seconds + " 秒" : "READY";
+    const seconds = testNoCooldown ? 0 : Math.ceil(domainCooldown / 60);
+    const ready = domainUnlocked && domainTicks === 0 && seconds === 0;
+    const label = !domainUnlocked ? "鎖定" : testNoCooldown
+      ? (domainTicks > 0 ? "施放中" : "無冷卻")
+      : seconds ? seconds + " 秒" : "READY";
     const { skill } = characters[characterId];
     if (domainStatus.textContent === label && domainName.textContent === skill) return;
     domainName.textContent = skill;
     domainStatus.textContent = label;
-    domainButton.dataset.ready = String(domainUnlocked && !seconds);
-    domainButton.setAttribute("aria-disabled", String(!domainUnlocked || seconds > 0));
+    domainButton.dataset.ready = String(ready);
+    domainButton.setAttribute("aria-disabled", String(!ready));
     domainButton.title = domainUnlocked ? `K · ${skill} · ${label}` : "通過暮光菇林後解鎖";
   }
 
   function castDomain() {
-    if (state !== "playing" || menuOpen() || !domainUnlocked || domainTicks > 0 || domainCooldown > 0) return;
+    if (state !== "playing" || menuOpen() || !domainUnlocked || domainTicks > 0 || (!testNoCooldown && domainCooldown > 0)) return;
     activeDomain = characters[characterId];
     domainTicks = domainDuration;
     domainCooldown = domainRecovery;
@@ -577,6 +581,7 @@
       }
       if (--domainTicks === 0) {
         activeDomain = null;
+        refreshDomain();
         if (boss && !bossHud.hidden) updateBossDomain(boss);
       }
     }
@@ -1067,6 +1072,18 @@
     saveRun();
   });
   if (testLevel) {
+    for (const [id, label, toggle] of [
+      ["test-invincible", "無敵", () => (testInvincible = !testInvincible)],
+      ["test-domain-cooldown", "領域無冷卻", () => (testNoCooldown = !testNoCooldown)]
+    ]) {
+      const button = document.querySelector("#" + id);
+      button?.addEventListener("click", () => {
+        const enabled = toggle();
+        button.setAttribute("aria-pressed", String(enabled));
+        button.textContent = `${label}｜${enabled ? "開" : "關"}`;
+        refreshDomain();
+      });
+    }
     levels.forEach((level, index) => testLevel.add(new Option(`${index + 1} · ${level.name}`, String(index))));
     testLevel.addEventListener("change", () => {
       const index = Number(testLevel.value);
@@ -1139,8 +1156,18 @@
     }
   }
 
+  function respawnPlayer() {
+    Object.assign(player, { x: player.respawn, y: groundY - player.h, vx: 0,
+      vy: 0, grounded: true, grace: 0 });
+    resetCamera();
+  }
+
   function hurt(enemy) {
     if (state !== "playing" || (enemy && player.immunity > 0)) return;
+    if (testInvincible) {
+      if (!enemy) respawnPlayer();
+      return;
+    }
     health--;
     pendingSave = true;
     updateHud();
@@ -1159,9 +1186,7 @@
       player.grace = 0;
       burst(player.x + 8, player.y + 10, ["#ff83aa", "#fff1c7"]);
     } else {
-      Object.assign(player, { x: player.respawn, y: groundY - player.h, vx: 0,
-        vy: 0, grounded: true, grace: 0 });
-      resetCamera();
+      respawnPlayer();
     }
   }
 

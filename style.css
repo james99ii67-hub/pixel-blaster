@@ -95,6 +95,9 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
 .weapon-select button:disabled { background: #f0e8db; border-color: #cdc2b3; color: #6d6470; }
 .weapon-select button:disabled::after { content: "🔒"; font-size: .7rem; margin-left: auto; }
 .account-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 12px; padding-top: 8px; border-top: 1px solid #cfc4b3; font-size: .88rem; }
+.developer-controls { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.developer-controls button { padding: 4px 8px; }
+.developer-controls [aria-pressed="true"] { background: #c9efd2; }
 .account-panel a { display: inline-flex; align-items: center; min-height: 44px; color: #57367d; }
 .account-panel select { min-height: 44px; max-width: 100%; }
 @media (any-pointer: coarse) {
