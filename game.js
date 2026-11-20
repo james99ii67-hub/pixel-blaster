@@ -255,6 +255,11 @@
         tone("sine", 588, 590, 0.58, 0.19, 0.32);
         tone("sine", 880, 880, 0.46, 0.31, 0.19);
       },
+      temple() {
+        tone("triangle", 133, 62, 0.52, 0, 0.33);
+        tone("sawtooth", 540, 170, 0.14, 0.08, 0.14);
+        tone("triangle", 370, 93, 0.31, 0.22, 0.22);
+      },
       crystalEnter() {
         [277, 415, 622, 831].forEach((hz, i) => tone("sine", hz, hz, 0.29, i * 0.1, 0.32));
         tone("triangle", 139, 104, 0.45, 0.32, 0.27);
@@ -495,7 +500,10 @@
   const screen = document.querySelector("#screen");
   const bossPhase = document.querySelector("#boss-phase");
   const portrait = matchMedia("(orientation: portrait) and (any-pointer: coarse) and (max-width: 600px)");
-  const panels = [settingsPanel, weaponPanel, restartPanel, guidePanel, continuePanel];
+  const characterPanel = document.querySelector("#character-panel");
+  const characterCancel = document.querySelector("#cancel-character");
+  const characterCards = [...document.querySelectorAll("[data-character]")];
+  const panels = [settingsPanel, weaponPanel, restartPanel, guidePanel, continuePanel, characterPanel];
   let restartOrigin;
   const menuOpen = () => panels.some(panel => panel.open);
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -508,25 +516,44 @@
   let domainUnlocked = false, domainTicks = 0, domainCooldown = 0, domainNotice = false;
   const domainButton = document.querySelector("#domain-skill");
   const domainStatus = document.querySelector("#domain-status");
+  const domainName = document.querySelector("#domain-name");
+  const domainDuration = 4 * 60;
+  const domainRecovery = 60 * 60;
+  const characters = {
+    astral: {
+      name: "星界術師", skill: "無限星界", freeze: true, bossPace: 0.70,
+      pulse: 60, damage: 1, bossDamage: 1, color: "#c7c2ff",
+      tip: "定住附近敵人 4 秒", backdrop: domainBackdrop, sound: sound.domain
+    },
+    crimson: {
+      name: "赤刃咒師", skill: "赤刃神殿", freeze: false, bossPace: 1,
+      pulse: 30, damage: 2, bossDamage: 0.5, color: "#ff8489",
+      tip: "持續斬擊附近敵人 4 秒", backdrop: templeBackdrop, sound: sound.temple
+    }
+  };
+  let characterId, activeDomain;
   const bossName = document.querySelector("#boss-name");
 
   function refreshDomain() {
     const seconds = Math.ceil(domainCooldown / 60);
     const label = !domainUnlocked ? "鎖定" : seconds ? seconds + " 秒" : "READY";
-    if (domainStatus.textContent === label) return;
+    const { skill } = characters[characterId];
+    if (domainStatus.textContent === label && domainName.textContent === skill) return;
+    domainName.textContent = skill;
     domainStatus.textContent = label;
     domainButton.dataset.ready = String(domainUnlocked && !seconds);
     domainButton.setAttribute("aria-disabled", String(!domainUnlocked || seconds > 0));
-    domainButton.title = domainUnlocked ? "K · 無量空処 · " + label : "通過暮光菇林後解鎖";
+    domainButton.title = domainUnlocked ? `K · ${skill} · ${label}` : "通過暮光菇林後解鎖";
   }
 
   function castDomain() {
-    if (state !== "playing" || menuOpen() || !domainUnlocked || domainCooldown > 0) return;
-    domainTicks = 240;
-    domainCooldown = 3600;
-    sound.domain();
+    if (state !== "playing" || menuOpen() || !domainUnlocked || domainTicks > 0 || domainCooldown > 0) return;
+    activeDomain = characters[characterId];
+    domainTicks = domainDuration;
+    domainCooldown = domainRecovery;
+    activeDomain.sound();
     refreshDomain();
-    announceStatus("領域展開 · 無量空処");
+    announceStatus(`領域展開 · ${activeDomain.skill}`);
     saveRun();
   }
 
@@ -537,14 +564,16 @@
 
   function tickDomain() {
     if (domainTicks > 0) {
-      // Four pulses on simulation ticks 60, 120, 180 and 240.
-      if (domainTicks % 60 === 1) {
+      if (domainTicks % activeDomain.pulse === 1) {
         for (let i = enemies.length - 1; i >= 0; i--) {
           const enemy = enemies[i];
-          if (inDomain(enemy)) damageEnemy(enemy, 1, "#c7c2ff");
+          if (inDomain(enemy)) {
+            const damage = enemy === boss ? activeDomain.bossDamage : activeDomain.damage;
+            damageEnemy(enemy, damage, activeDomain.color);
+          }
         }
       }
-      domainTicks--;
+      if (--domainTicks === 0) activeDomain = null;
     }
     if (domainCooldown > 0) {
       domainCooldown--;
@@ -558,7 +587,8 @@
   function showDomainNotice() {
     if (!domainNotice || levelIndex !== 2) return;
     domainNotice = false;
-    supplyMessage.textContent = "新技能解鎖！無量空処 · 按 K 或點「領域展開」，定住附近敵人 4 秒。";
+    const { skill, tip } = characters[characterId];
+    supplyMessage.textContent = `新技能解鎖！${skill} · 按 K 或點技能按鈕，${tip}。`;
     supplyMessage.hidden = false;
     unlockUntil = time + 6;
     announceStatus(supplyMessage.textContent);
@@ -632,6 +662,11 @@
         !map.platforms.some(([x,y]) => y === groundY && Math.max(64, x + 13) === r.floor)) return null;
     return r;
   }
+
+  const storedCharacter = readLocal("character");
+  const hasCharacter = typeof storedCharacter === "string" && Object.hasOwn(characters, storedCharacter);
+  characterId = hasCharacter ? storedCharacter : "astral";
+  let choosingAtLaunch = !hasCharacter;
 
   let savedRun = readRun();
   let allowSave = false, pendingSave = false;
@@ -774,6 +809,7 @@
     level = levels[index];
     domainUnlocked = index >= 2;
     domainTicks = 0;
+    activeDomain = null;
     crystalDefeat = null;
     sound.setTrack(level.theme);
     if (testLevel) testLevel.value = String(index);
@@ -964,6 +1000,41 @@
   document.querySelector("#continue-game").addEventListener("click", resumeRun);
   document.querySelector("#new-game").addEventListener("click", requestRestart);
   settingsToggle.addEventListener("click", () => openPanel(settingsPanel));
+
+  function showCharacters() {
+    characterCancel.hidden = choosingAtLaunch;
+    for (const card of characterCards) {
+      const selected = card.dataset.character === characterId;
+      card.querySelector(".current-character").hidden = !selected || choosingAtLaunch;
+    }
+    openPanel(characterPanel);
+    characterCards.find(card => card.dataset.character === characterId)?.focus();
+  }
+
+  function cancelCharacter() {
+    if (!choosingAtLaunch) openPanel(settingsPanel);
+  }
+  document.querySelector("#change-character").addEventListener("click", showCharacters);
+  characterCancel.addEventListener("click", cancelCharacter);
+  characterPanel.addEventListener("cancel", event => {
+    event.preventDefault();
+    cancelCharacter();
+  });
+  for (const card of characterCards) {
+    card.addEventListener("click", () => {
+      characterId = card.dataset.character;
+      writeLocal("character", characterId);
+      characterPanel.close();
+      refreshDomain();
+      announceStatus(`已選擇${characters[characterId].name}`);
+      if (choosingAtLaunch) {
+        choosingAtLaunch = false;
+        beginAdventure();
+      } else {
+        canvas.focus({ preventScroll: true });
+      }
+    });
+  }
   weaponToggle.addEventListener("click", () => openPanel(weaponPanel));
   for (const close of document.querySelectorAll("[data-close]")) {
     close.addEventListener("click", () => close.closest("dialog").close());
@@ -974,7 +1045,7 @@
       const box = panel.getBoundingClientRect();
       if (event.clientX >= box.left && event.clientX <= box.right &&
           event.clientY >= box.top && event.clientY <= box.bottom) return;
-      if (panel === continuePanel || panel === guidePanel) return;
+      if (panel === continuePanel || panel === guidePanel || panel === characterPanel) return;
       if (panel === restartPanel) cancelRestart();
       else panel.close();
     });
@@ -1259,10 +1330,11 @@
   function updateEnemy(enemy, dt) {
     enemy.flash = Math.max(0, enemy.flash - dt);
     if (enemy.type === "boss") {
-      updateBoss(enemy, dt * (inDomain(enemy) && (enemy.mode === "windup" || enemy.mode === "recover") ? 0.70 : 1));
+      const attacking = enemy.mode === "windup" || enemy.mode === "recover";
+      updateBoss(enemy, dt * (attacking && inDomain(enemy) ? activeDomain.bossPace : 1));
       return;
     }
-    if (inDomain(enemy)) {
+    if (activeDomain?.freeze && inDomain(enemy)) {
       enemy.frozenTime = (enemy.frozenTime || 0) + dt;
       return;
     }
@@ -2115,6 +2187,44 @@
     ctx.restore();
   }
 
+  function templeBackdrop(remaining) {
+    const elapsed = 4 - remaining;
+    const fade = clamp(Math.min(elapsed / 0.42, remaining / 0.55), 0, 1);
+    ctx.save();
+    ctx.globalAlpha = fade;
+    rect(0, 0, width, height, "#2d1428");
+    rect(0, 135, width, 135, "#451b2d");
+    // Pillars and stepped roof tiles frame the rear altar.
+    for (const x of [22, 77, 142, 309, 376, 431]) {
+      rect(x, 59, 17, 166, "#351526");
+      rect(x + 2, 66, 5, 137, "#773040");
+      rect(x - 5, 61, 27, 9, "#a2474d");
+      rect(x - 4, 193, 25, 10, "#63283b");
+    }
+    for (let tier = 0; tier < 5; tier++) {
+      const halfWidth = 53 + tier * 18;
+      rect(240 - halfWidth, 51 + tier * 9, halfWidth * 2, 9, tier % 2 ? "#693044" : "#50243a");
+    }
+    rect(197, 97, 86, 99, "#693044");
+    rect(211, 106, 58, 90, "#351526");
+    rect(229, 135, 22, 61, "#ac4350");
+    for (let i = 0; i < 3; i++) rect(189 - i * 17, 197 + i * 9, 102 + i * 34, 8, "#793340");
+
+    // Slashes stay behind enemies and telegraphs. Reduced motion uses fixed marks.
+    for (let i = 0; i < 5; i++) {
+      const phase = reduceMotion ? 0.45 : (elapsed * 1.4 + i * 0.21) % 1;
+      const x = 36 + i * 83 + phase * 52;
+      const y = 113 + (i % 3) * 31 - phase * 22;
+      ctx.globalAlpha = fade * (0.27 + 0.48 * Math.sin(phase * Math.PI));
+      for (let part = 0; part < 16; part++) {
+        const slashY = y - part * (i % 2 ? 2 : -2);
+        rect(x + part * 5, slashY, 5, 4 + (part % 3), "#ff626c");
+        rect(x + part * 5, slashY + 2, 5, 1, "#ffc2a8");
+      }
+    }
+    ctx.restore();
+  }
+
   function phaseBackdrop(enemy) {
     if (!enemy || enemy.phase !== 2 || enemy.hp <= 0) return;
     ctx.save();
@@ -2272,39 +2382,71 @@
     ctx.translate(drawX + (player.facing < 0 ? player.w : 0), Math.round(player.y) - bob);
     ctx.scale(player.facing, 1);
 
-    rect(-3, 10, 6, 10, ink);
-    rect(-2, 11, 6, 7, "#8266ac");
-    rect(-1, 11, 3, 2, "#c6a0d3");
-    rect(2, 11, 12, 11, ink);
-    rect(3, 13, 10, 7, "#5676ba");
-    rect(3, 13, 3, 5, "#7498d1");
-    rect(2, 12, 14, 4, "#b94374");
-    rect(3, 12, 12, 2, "#f37e9c");
-    rect(-3 - stride, 13, 6, 3, "#ed6994");
-    rect(-4 - stride, 15, 4, 2, "#b94374");
-    rect(3 - stride, 19, 5, 4 + bob, ink);
-    rect(10 + stride, 18, 5, 5 + bob, ink);
-    rect(4 - stride, 20, 3, 2, "#9d6a82");
-    rect(11 + stride, 20, 3, 2, "#9d6a82");
-
-    rect(1, 4, 15, 9, ink);
-    rect(3, 5, 12, 7, "#ffcb9d");
-    rect(3, 5, 3, 5, "#9b5e66");
-    rect(8, 6, 7, 4, "#ffdeaf");
-    rect(11, 7, 2, 3, ink);
-    rect(13, 10, 2, 1, "#f29194");
-    rect(1, 0, 13, 5, ink);
-    rect(3, -1, 9, 2, ink);
-    rect(2, 1, 11, 4, "#ffda78");
-    rect(4, 1, 5, 2, "#fff0a1");
-    rect(2, 4, 11, 2, "#e99555");
-    rect(-1, 5, 19, 2, ink);
-    rect(0, 5, 16, 1, "#ffc870");
-    rect(12, 15, 8, 5, ink);
-    rect(13, 16, 6, 3, weapons[weaponIndex].color ?? "#8a80c2");
-    rect(17, 16, 2, 2, "#c7ebff");
-    rect(13, 18, 2, 2, "#ffc49b");
+    drawCharacter(ctx, characterId, stride, bob, weapons[weaponIndex].color ?? "#8a80c2");
     ctx.restore();
+  }
+
+  const outfits = {
+    astral: {
+      "#8266ac": "#5678b0", "#c6a0d3": "#a8d9f7", "#5676ba": "#c5e5ff", "#7498d1": "#76a4dc",
+      "#b94374": "#3766aa", "#f37e9c": "#8dc7f4", "#ed6994": "#8dc7f4",
+      "#ffda78": "#e2f8ff", "#fff0a1": "#ffffff", "#e99555": "#7bafdc", "#ffc870": "#a6d5f7"
+    },
+    crimson: {
+      "#8266ac": "#512c48", "#c6a0d3": "#d4556a", "#5676ba": "#3b263a", "#7498d1": "#764053",
+      "#b94374": "#922944", "#f37e9c": "#e34961", "#ed6994": "#e34961",
+      "#ffda78": "#c93650", "#fff0a1": "#ffa689", "#e99555": "#912941"
+    }
+  };
+
+  function drawCharacter(target, id, stride, bob, weaponColor) {
+    const outfit = outfits[id];
+    const pixel = (x, y, w, h, color) => {
+      target.fillStyle = outfit[color] ?? color;
+      target.fillRect(x, y, w, h);
+    };
+    pixel(-3, 10, 6, 10, ink);
+    pixel(-2, 11, 6, 7, "#8266ac");
+    pixel(-1, 11, 3, 2, "#c6a0d3");
+    pixel(2, 11, 12, 11, ink);
+    pixel(3, 13, 10, 7, "#5676ba");
+    pixel(3, 13, 3, 5, "#7498d1");
+    pixel(2, 12, 14, 4, "#b94374");
+    pixel(3, 12, 12, 2, "#f37e9c");
+    pixel(-3 - stride, 13, 6, 3, "#ed6994");
+    pixel(-4 - stride, 15, 4, 2, "#b94374");
+    pixel(3 - stride, 19, 5, 4 + bob, ink);
+    pixel(10 + stride, 18, 5, 5 + bob, ink);
+    pixel(4 - stride, 20, 3, 2, "#9d6a82");
+    pixel(11 + stride, 20, 3, 2, "#9d6a82");
+
+    pixel(1, 4, 15, 9, ink);
+    pixel(3, 5, 12, 7, "#ffcb9d");
+    pixel(3, 5, 3, 5, "#9b5e66");
+    pixel(8, 6, 7, 4, "#ffdeaf");
+    pixel(11, 7, 2, 3, ink);
+    pixel(13, 10, 2, 1, "#f29194");
+    if (id === "crimson") {
+      pixel(1, 1, 14, 5, ink);
+      pixel(3, -3, 12, 8, ink);
+      pixel(4, -2, 9, 5, "#ffda78");
+      pixel(8, -2, 3, 3, "#fff0a1");
+      pixel(-1, 3, 17, 3, "#e99555");
+      pixel(2, 5, 3, 2, "#fff0a1");
+    } else {
+      pixel(1, 0, 13, 5, ink);
+      pixel(3, -1, 9, 2, ink);
+      pixel(2, 1, 11, 4, "#ffda78");
+      pixel(4, 1, 5, 2, "#fff0a1");
+      pixel(2, 4, 11, 2, "#e99555");
+      pixel(-1, 5, 19, 2, ink);
+      pixel(0, 5, 16, 1, "#ffc870");
+      pixel(9, 1, 2, 3, "#7498d1");
+    }
+    pixel(12, 15, 8, 5, ink);
+    pixel(13, 16, 6, 3, weaponColor);
+    pixel(17, 16, 2, 2, "#c7ebff");
+    pixel(13, 18, 2, 2, "#ffc49b");
   }
 
   function brickArt(brick) {
@@ -2406,7 +2548,7 @@
     terrainPalette = sceneryPalettes[level.theme];
     scenery();
     phaseBackdrop(boss);
-    domainBackdrop(domainTicks / 60);
+    activeDomain?.backdrop(domainTicks / 60);
     ctx.save();
     ctx.translate(-Math.round(camera), 0);
     for (const [left, right] of pits) {
@@ -2473,17 +2615,26 @@
 
   reset();
   bestLabel.textContent = String(best);
-  if (savedRun) {
-    const map = levels[savedRun.stage];
-    const at = savedRun.floor === 64 ? "關卡起點" : "最近的地面檢查點";
-    document.querySelector("#save-detail").textContent = `第 ${savedRun.stage + 1} 關「${map.name}」 · ${at} · 最高分 ${best}`;
-    if (savedRun.completed) document.querySelector("#continue-game").textContent = "重玩第五關";
-    openPanel(continuePanel);
-  } else if (readLocal("guideSeen") !== true) {
-    showGuide();
-  } else {
-    allowSave = true;
-    saveRun();
+  function beginAdventure() {
+    if (savedRun) {
+      const map = levels[savedRun.stage];
+      const at = savedRun.floor === 64 ? "關卡起點" : "最近的地面檢查點";
+      document.querySelector("#save-detail").textContent = `第 ${savedRun.stage + 1} 關「${map.name}」 · ${at} · 最高分 ${best}`;
+      if (savedRun.completed) document.querySelector("#continue-game").textContent = "重玩第五關";
+      openPanel(continuePanel);
+    } else if (readLocal("guideSeen") !== true) {
+      showGuide();
+    } else {
+      allowSave = true;
+      saveRun();
+    }
   }
+  for (const card of characterCards) {
+    const preview = card.querySelector("canvas").getContext("2d");
+    preview.translate(7, 5);
+    drawCharacter(preview, card.dataset.character, 0, 0, "#8a80c2");
+  }
+  if (choosingAtLaunch) showCharacters();
+  else beginAdventure();
   requestAnimationFrame(frame);
 })();
