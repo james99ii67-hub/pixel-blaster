@@ -14,6 +14,7 @@ function accountPanel(request, env) {
       <div class="developer-controls" role="group" aria-label="開發測試">
         <button id="test-invincible" type="button" aria-label="無敵" aria-pressed="false">無敵｜關</button>
         <button id="test-domain-cooldown" type="button" aria-label="領域無冷卻" aria-pressed="false">領域無冷卻｜關</button>
+        <button id="test-ultimate-cooldown" type="button" aria-label="必殺技無冷卻" aria-pressed="false">必殺技無冷卻｜關</button>
       </div>`
     : '<span>已登入 · 一般玩家</span>';
   return `<nav class="account-panel" aria-label="帳號">${status}<a href="/signout-with-chatgpt" target="_top">登出</a></nav>`;

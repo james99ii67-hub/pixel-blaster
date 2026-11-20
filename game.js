@@ -480,7 +480,7 @@
   const bossHealth = document.querySelector("#boss-health");
   const bossWarning = document.querySelector("#boss-warning");
   const testLevel = document.querySelector("#test-level");
-  let testInvincible = false, testNoCooldown = false;
+  let testInvincible = false, testNoCooldown = false, testUltimateNoCooldown = false;
   const nextButton = document.querySelector("#next-level");
   const levelNumber = document.querySelector("#level-number");
   const levelName = document.querySelector("#level-name");
@@ -608,9 +608,9 @@
 
   function refreshUltimate() {
     const charging = ultimateCharge > 0;
-    const ready = !charging && ultimateCooldown === 0;
+    const ready = !charging && (testUltimateNoCooldown || ultimateCooldown === 0);
     const label = charging ? `${(Math.ceil(ultimateCharge / 6) / 10).toFixed(1)}s`
-      : ready ? "READY" : `${Math.ceil(ultimateCooldown / 60)} 秒`;
+      : testUltimateNoCooldown ? "無冷卻" : ready ? "READY" : `${Math.ceil(ultimateCooldown / 60)} 秒`;
     const { ultimate } = characters[characterId];
     if (ultimateStatus.textContent !== label) ultimateStatus.textContent = label;
     if (ultimateProgress.hidden !== !charging) ultimateProgress.hidden = !charging;
@@ -627,7 +627,7 @@
   }
 
   function beginUltimate() {
-    if (state !== "playing" || menuOpen() || ultimateCharge || ultimateCooldown) return;
+    if (state !== "playing" || menuOpen() || ultimateCharge || (!testUltimateNoCooldown && ultimateCooldown > 0)) return;
     ultimateCharge = ultimateChargeTime;
     player.vx = clamp(player.vx, -70, 70);
     beam = null;
@@ -1174,7 +1174,8 @@
   if (testLevel) {
     for (const [id, label, toggle] of [
       ["test-invincible", "無敵", () => (testInvincible = !testInvincible)],
-      ["test-domain-cooldown", "領域無冷卻", () => (testNoCooldown = !testNoCooldown)]
+      ["test-domain-cooldown", "領域無冷卻", () => (testNoCooldown = !testNoCooldown)],
+      ["test-ultimate-cooldown", "必殺技無冷卻", () => (testUltimateNoCooldown = !testUltimateNoCooldown)]
     ]) {
       const button = document.querySelector("#" + id);
       button?.addEventListener("click", () => {
@@ -1182,6 +1183,7 @@
         button.setAttribute("aria-pressed", String(enabled));
         button.textContent = `${label}｜${enabled ? "開" : "關"}`;
         refreshDomain();
+        refreshUltimate();
       });
     }
     levels.forEach((level, index) => testLevel.add(new Option(`${index + 1} · ${level.name}`, String(index))));
