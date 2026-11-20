@@ -164,6 +164,7 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
 .settings-list #restart { grid-column: auto; }
 #boss-hud { background: #302b40; color: #fff9e9; border-color: #181629; max-width: 86%; }
 #boss-phase { color: #ffdf91; }
+#boss-domain { display: block; color: #d4c9ff; font-size: .75rem; }
 #boss-hud[data-mode="recover"] #boss-phase { color: #a1eed2; }
 #boss-warning { color: #fff; display: block; text-align: left; line-height: 1.3; font-size: .9rem; }
 #screen[data-protected="true"] .hearts { outline: 1px solid #8df1e6; outline-offset: 2px; }
