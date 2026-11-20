@@ -528,7 +528,9 @@
   const ultimateChargeTime = 5 * 60;
   const ultimateRecovery = 120 * 60;
   const ultimateInterruptRecovery = 15 * 60;
-  const ultimateDamage = 24;
+  const ultimateDamage = 60;
+  const ultimateSlashWidth = 450;
+  const ultimateSlashHeight = 144;
   const ultimateButton = document.querySelector("#ultimate-skill");
   const ultimateStatus = document.querySelector("#ultimate-status");
   const ultimateProgress = document.querySelector("#ultimate-progress");
@@ -662,8 +664,8 @@
         vx: direction * 385, vy: 0, life: 1.45, hits: Infinity, damage: ultimateDamage,
         struck: new Set(), color: "#d69bff" };
     } else {
-      ultimateSlash = { x: direction > 0 ? x : x - 300, y: y - 49,
-        w: 300, h: 98, direction, life: 0.32 };
+      ultimateSlash = { x: direction > 0 ? x : x - ultimateSlashWidth, y: y - ultimateSlashHeight / 2,
+        w: ultimateSlashWidth, h: ultimateSlashHeight, direction, life: 0.32 };
       for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         if (intersects(ultimateSlash, enemy)) damageEnemy(enemy, ultimateDamage, "#ff978c", direction);
@@ -2714,7 +2716,7 @@
       } else {
         // The rift trembles locally. Terrain, enemies and the HUD stay anchored.
         const tremor = !reduceMotion && progress > 0.45 ? Math.round(Math.sin(time * 19)) : 0;
-        const extent = Math.floor(18 + progress * 105);
+        const extent = Math.floor(18 + progress * (ultimateSlashWidth / 2 - 18));
         for (let d = 0; d < extent; d += 6) {
           const px = x + direction * d;
           const py = y + tremor + (d % 18 === 0 ? 2 : -2) - d * 0.16;
@@ -2736,12 +2738,14 @@
     if (ultimateSlash) {
       const { x, y, w, h, direction, life } = ultimateSlash;
       ctx.globalAlpha = Math.min(0.75, life / 0.32);
+      rect(x, y, w, h, "#f43d6320");
       for (let i = 0; i < w; i += 8) {
-        const px = direction > 0 ? x + i : x + w - i - 8;
+        const segment = Math.min(8, w - i);
+        const px = direction > 0 ? x + i : x + w - i - segment;
         const py = y + h * 0.73 - i / w * h * 0.53;
-        rect(px, py - 11, 8, 23, "#401727");
-        rect(px, py - 6, 8, 13, "#e64f65");
-        rect(px, py - 1, 8, 3, "#ffd0ad");
+        rect(px, py - 11, segment, 23, "#401727");
+        rect(px, py - 6, segment, 13, "#e64f65");
+        rect(px, py - 1, segment, 3, "#ffd0ad");
       }
     }
     ctx.restore();
