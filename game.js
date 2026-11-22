@@ -467,6 +467,7 @@
   };
   const keys = new Set();
   const pointers = new Map();
+  const directionPad = document.querySelector(".touch-move");
   const touchButtons = [...document.querySelectorAll("[data-action]")];
   const healthLabel = document.querySelector("#health");
   const hearts = [...healthLabel.children];
@@ -814,7 +815,7 @@
 
   const guideSteps = [
     ["移動", "按住左側的方向鍵，朝右邊的旗幟前進。鍵盤可用 ← → 或 A、D。"],
-    ["跳躍", "點右側「跳躍」或按空白鍵。按住方向再跳，就能越過缺口。"],
+    ["跳躍", "點左側 ↑ 就能跳。按住 ← 或 → 往上滑，可邊跑邊跳。鍵盤可按空白鍵。"],
     ["發射", "按住「射擊」或 X，朝面向的方向持續發射。移動和跳躍時也能射擊。"],
     ["補給磚", "站到補給磚正下方，跳起用頭頂它。新武器會自動裝備，點「切換」可查看武器清單。"]
   ];
@@ -857,10 +858,11 @@
     keys.clear();
     beam = null;
     arcs = [];
-    for (const [id, button] of pointers) {
+    const activePointers = [...pointers];
+    pointers.clear();
+    for (const [id, { button }] of activePointers) {
       if (button.hasPointerCapture(id)) button.releasePointerCapture(id);
     }
-    pointers.clear();
     touchButtons.forEach(button => button.classList.remove("pressed"));
     jumpBuffer = 0;
   }
@@ -996,10 +998,44 @@
     for (const code of keys) {
       if (keyActions[code] === action) return true;
     }
-    for (const button of pointers.values()) {
-      if (button.dataset.action === action) return true;
+    return touchHeld(action);
+  }
+
+  function touchHeld(action) {
+    for (const input of pointers.values()) {
+      if (input.action === action || (action === "jump" && input.jump)) return true;
     }
     return false;
+  }
+
+  function syncTouchButtons() {
+    for (const button of touchButtons) {
+      button.classList.toggle("pressed", touchHeld(button.dataset.action));
+    }
+  }
+
+  function slideDirection(event) {
+    const input = pointers.get(event.pointerId);
+    if (!input?.bounds) return;
+    const { clientX, clientY } = event;
+    const { left, right, top, bottom, width } = input.bounds;
+    const withinReach = clientX >= left - 24 && clientX <= right + 24 &&
+      clientY >= top - 38 && clientY <= bottom + 24;
+    const center = left + width / 2;
+    const neutral = width / 9;
+    // A small release margin prevents jitter around the jump threshold.
+    const jump = withinReach && clientY <= input.jumpLine + (input.jump ? 7 : 0);
+    let action = null;
+    if (withinReach) {
+      if (clientX < center - neutral) action = "left";
+      else if (clientX > center + neutral) action = "right";
+      else if (jump) action = input.action;
+    }
+    if (input.action === action && input.jump === jump) return;
+    if (jump && !input.jump && !held("jump")) jumpBuffer = 0.13;
+    input.action = action;
+    input.jump = jump;
+    syncTouchButtons();
   }
 
   window.addEventListener("keydown", event => {
@@ -1048,11 +1084,11 @@
   window.addEventListener("orientationchange", clearInputs);
 
   function releaseTouch(event) {
-    const button = pointers.get(event.pointerId);
-    if (!button) return;
+    const input = pointers.get(event.pointerId);
+    if (!input) return;
     pointers.delete(event.pointerId);
-    button.classList.toggle("pressed", [...pointers.values()].includes(button));
-    if (event.type === "pointercancel" && button.dataset.action === "jump" && !held("jump")) jumpBuffer = 0;
+    syncTouchButtons();
+    if (event.type !== "pointerup" && input.jump && !held("jump")) jumpBuffer = 0;
   }
   for (const button of touchButtons) {
     button.addEventListener("pointerdown", event => {
@@ -1061,17 +1097,24 @@
       sound.unlock();
       // Window-level release also covers browsers that lose capture during rotation.
       if (button.isConnected) button.setPointerCapture(event.pointerId);
-      pointers.set(event.pointerId, button);
-      button.classList.add("pressed");
-      if (button.dataset.action === "jump") jumpBuffer = 0.13;
-      if (button.dataset.action === "domain") castDomain();
-      if (button.dataset.action === "ultimate") beginUltimate();
+      const action = button.dataset.action;
+      const input = { button, action: action === "jump" ? null : action, jump: action === "jump" };
+      if (directionPad.contains(button)) {
+        input.bounds = directionPad.getBoundingClientRect();
+        input.jumpLine = event.clientY + (input.jump ? 8 : -15);
+      }
+      if (input.jump && !held("jump")) jumpBuffer = 0.13;
+      pointers.set(event.pointerId, input);
+      syncTouchButtons();
+      if (action === "domain") castDomain();
+      if (action === "ultimate") beginUltimate();
     });
 
+    button.addEventListener("pointermove", slideDirection);
     button.addEventListener("pointerup", event => { sound.unlock(); releaseTouch(event); });
     button.addEventListener("pointercancel", releaseTouch);
     button.addEventListener("lostpointercapture", event => {
-      if (pointers.get(event.pointerId) === button) releaseTouch(event);
+      if (pointers.get(event.pointerId)?.button === button) releaseTouch(event);
     });
     // Pointer events already handle these controls. Suppress the legacy touch
     // default so rapid taps cannot trigger WebKit smart zoom.

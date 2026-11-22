@@ -71,7 +71,9 @@ kbd { font: 750 .75rem/1.25 ui-monospace, monospace; padding: 3px 5px; border: 1
   font: 850 .78rem/1.1 system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
 .touch-controls button.pressed { transform: translateY(2px); background: #ffe593; box-shadow: inset 0 2px #3e344540; }
 .touch-controls i { display: block; width: 20px; height: 18px; background: currentColor; }
-.touch-move i { clip-path: polygon(0 35%,20% 35%,20% 18%,40% 18%,40% 0,60% 0,60% 30%,100% 30%,100% 70%,60% 70%,60% 100%,40% 100%,40% 82%,20% 82%,20% 65%,0 65%); }
+.touch-move { align-items: flex-end; }
+.touch-move [data-action="jump"] { margin-bottom: 16px; }
+.touch-move [data-action="left"] i, .touch-move [data-action="right"] i { clip-path: polygon(0 35%,20% 35%,20% 18%,40% 18%,40% 0,60% 0,60% 30%,100% 30%,100% 70%,60% 70%,60% 100%,40% 100%,40% 82%,20% 82%,20% 65%,0 65%); }
 [data-action="right"] i { transform: scaleX(-1); }
 button[data-action="jump"] { background: rgb(177 235 235 / .81); }
 button[data-action="fire"] { background: rgb(255 176 205 / .82); }
@@ -222,4 +224,8 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
 @media (max-width: 360px) and (orientation: portrait) and (any-pointer: coarse) {
   .skill-controls button { min-width: 62px; padding-inline: 4px; }
   .masthead .stage { gap: 4px; }
+}
+
+@media (max-width: 650px) and (orientation: landscape) and (any-pointer: coarse) {
+  .touch-move button { width: 44px; }
 }
