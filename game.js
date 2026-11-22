@@ -1073,6 +1073,11 @@
     button.addEventListener("lostpointercapture", event => {
       if (pointers.get(event.pointerId) === button) releaseTouch(event);
     });
+    // Pointer events already handle these controls. Suppress the legacy touch
+    // default so rapid taps cannot trigger WebKit smart zoom.
+    button.addEventListener("touchend", event => {
+      if (event.cancelable) event.preventDefault();
+    }, { passive: false });
     button.addEventListener("contextmenu", event => event.preventDefault());
   }
   ultimateButton.addEventListener("click", event => {
