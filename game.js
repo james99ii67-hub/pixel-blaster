@@ -339,7 +339,7 @@
       platforms: meadowPlatforms, enemies: meadowEnemies, gems: meadowGems, supplies: [[206, 159, 1]]
     },
     {
-      name: "暮光菇林", width: 2210, goal: 2115, theme: "grove", supplies: [[210, 159, 4], [551, 157, 3]],
+      name: "暮光菇林", width: 2210, goal: 2115, theme: "grove", supplies: [[210, 159, 4]],
       platforms: [
         [0, groundY, 375], [433, groundY, 374], [871, groundY, 380],
         [1314, groundY, 357], [1732, groundY, 478],
@@ -409,7 +409,7 @@
         [1871, 166], [1994, 136], [2144, 160]]
     },
     {
-      name: "熔火遺跡", width: 2260, goal: 2188, theme: "ruins", supplies: [],
+      name: "熔火遺跡", width: 2260, goal: 2188, theme: "ruins", supplies: [[1704, 159, 3]],
       arena: { kind: "magma", name: "熔核巨像", start: 1732, bossX: 2011, gate: 2149 },
       platforms: [
         [0, groundY, 364], [427, groundY, 359], [856, groundY, 358],
@@ -438,9 +438,9 @@
       damage: 1, hits: 1, w: 6, h: 4, color: "#ffd86b" },
     { name: "晶光穿透槍", cooldown: 0.56, life: 1.12, speed: 405, spread: [0],
       damage: 3, hits: 3, w: 15, h: 7, color: "#6feaff" },
-    { name: "閃電槍", kind: "lightning", artifact: true, cooldown: 0.15, damage: 3,
+    { name: "閃電槍", kind: "lightning", artifact: true, cooldown: 0.15, damage: 2.5,
       range: 285, chainRange: 112, targets: 5, color: "#aadfff" },
-    { name: "噴火槍", cooldown: 0.11, life: 0.24, speed: 245, spread: [-52, -19, 17], kind: "flame",
+    { name: "噴火槍", cooldown: 0.11, life: 0.32, speed: 245, spread: [-52, -19, 17], kind: "flame",
       damage: 1, hits: 1, w: 8, h: 7, color: "#ff9258" },
     { name: "火焰雷射槍", kind: "beam", artifact: true, cooldown: 0.18, damage: 2, range: 240, h: 10, color: "#ffc961" }
   ];
