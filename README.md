@@ -6,6 +6,10 @@
 
 [在 GitHub Pages 遊玩](https://james99ii67-hub.github.io/pixel-blaster/) · [在 Sites 遊玩或使用 ChatGPT 登入](https://pixel-blaster.koujames9845.chatgpt.site/)。也可以把 `index.html`、`style.css` 和 `game.js` 放在同一資料夾，從瀏覽器開啟 `index.html`。若要用本機 HTTP 伺服器，在專案資料夾執行 `python3 -m http.server 4173 --bind 127.0.0.1`，再開啟 [http://127.0.0.1:4173](http://127.0.0.1:4173)。
 
+## 語言
+
+在設定的「語言 / Language / 言語」可選擇繁體中文、English 或日本語。首次選角畫面也有語言選單。切換會立即生效，重新開啟時會沿用同一瀏覽器上次的選擇。
+
 ## 操作
 
 | 動作 | 鍵盤 | 手機與平板 |

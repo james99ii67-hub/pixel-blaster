@@ -223,3 +223,13 @@ dialog::backdrop { background: rgb(34 35 53 / .55); }
   .skill-controls button { min-width: 62px; padding-inline: 4px; }
   .masthead .stage { gap: 4px; }
 }
+
+.language-picker { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0 10px; font-weight: 750; font-size: .86rem; }
+.language-picker select { min-height: 44px; max-width: 52%; padding-inline: 6px; color: var(--ink); background: #fff5d6; border: 1px solid var(--ink); border-radius: 5px; }
+:lang(en) .stage, :lang(ja) .stage { white-space: normal; min-width: 0; }
+:lang(en) #level-number, :lang(ja) #level-number { white-space: nowrap; }
+:lang(en) .boss-label, :lang(ja) .boss-label { flex-wrap: wrap; }
+:lang(en) .character-cards button { overflow-wrap: anywhere; }
+@media (orientation: landscape) and (any-pointer: coarse) and (max-height: 639px) {
+  :lang(en) .masthead .stage, :lang(ja) .masthead .stage { max-width: min(205px, calc(100% - 310px)); }
+}

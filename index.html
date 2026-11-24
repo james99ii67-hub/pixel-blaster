@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#fbf6e9">
   <title>Pixel Blaster｜晴光草原</title>
-  <link rel="stylesheet" href="style.css?v=23">
-  <script src="game.js?v=23" defer></script>
+  <link rel="stylesheet" href="style.css?v=24">
+  <script src="game.js?v=24" defer></script>
 </head>
 <body>
   <main class="arcade">
     <header class="masthead">
       <h1>PIXEL <span>BLASTER</span></h1>
-      <div class="stage"><span id="level-number" lang="en">LEVEL 01</span><b id="level-name">晴光草原</b></div>
+      <div class="stage"><span id="level-number">LEVEL 01</span><b id="level-name">晴光草原</b></div>
       <div class="skill-controls">
         <button type="button" id="domain-skill" data-action="domain" aria-keyshortcuts="K" aria-disabled="true"><span id="domain-name">無限星界</span><b id="domain-status">未解鎖</b></button>
         <button type="button" id="ultimate-skill" data-action="ultimate" aria-keyshortcuts="L" aria-label="必殺技"><span>必殺技</span><b id="ultimate-status">READY</b><progress id="ultimate-progress" max="300" value="300" aria-label="蓄力剩餘時間" hidden></progress></button>
@@ -67,6 +67,13 @@
   </main>
   <dialog id="settings-panel" aria-labelledby="settings-title">
     <div class="panel-heading"><h2 id="settings-title">遊戲設定</h2><button class="close" type="button" data-close aria-label="關閉設定">×</button></div>
+    <label class="language-picker">語言 / Language / 言語
+      <select data-language>
+        <option value="zh-Hant" lang="zh-Hant">繁體中文</option>
+        <option value="ja" lang="ja">日本語</option>
+        <option value="en" lang="en">English</option>
+      </select>
+    </label>
     <p class="record">最高分 <b id="best-score">0</b></p>
     <p id="storage-notice" hidden role="status">瀏覽器目前無法儲存，進度僅保留到本頁關閉。</p>
     <div class="settings-list">
@@ -80,6 +87,13 @@
   </dialog>
   <dialog id="character-panel" aria-labelledby="character-title">
     <div class="panel-heading"><h2 id="character-title">選擇角色</h2><button id="cancel-character" class="close" type="button" aria-label="返回設定" hidden>×</button></div>
+    <label class="language-picker">語言 / Language / 言語
+      <select data-language>
+        <option value="zh-Hant" lang="zh-Hant">繁體中文</option>
+        <option value="ja" lang="ja">日本語</option>
+        <option value="en" lang="en">English</option>
+      </select>
+    </label>
     <div class="character-cards">
       <button type="button" data-character="astral">
         <canvas width="30" height="30" aria-hidden="true"></canvas>
