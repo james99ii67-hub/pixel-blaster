@@ -53,12 +53,12 @@
 
     function updateButton() {
       musicButton.disabled = !Audio;
-      musicButton.textContent = Audio && musicEnabled ? "♫ 音樂開" : "♫ 音樂關";
+      musicButton.textContent = t(Audio && musicEnabled ? "♫ 音樂開" : "♫ 音樂關");
       musicButton.setAttribute("aria-pressed", String(Boolean(Audio && musicEnabled)));
       button.disabled = !Audio;
-      button.textContent = Audio && enabled ? "♪ 音效開" : "♪ 音效關";
+      button.textContent = t(Audio && enabled ? "♪ 音效開" : "♪ 音效關");
       button.setAttribute("aria-pressed", String(Boolean(Audio && enabled)));
-      button.title = Audio ? "切換遊戲音效" : "此瀏覽器無法播放遊戲音效";
+      button.title = t(Audio ? "切換遊戲音效" : "此瀏覽器無法播放遊戲音效");
     }
 
     function unlock() {
@@ -230,7 +230,7 @@
     updateButton();
 
     return {
-      unlock, sustain, setActive, setTrack, scheduleMusic,
+      unlock, sustain, setActive, setTrack, scheduleMusic, updateButton,
       jump() { tone("square", 270, 670, 0.12, 0, 0.19); },
       gem() { tone("sine", 880, 880, 0.09); tone("sine", 1320, 1320, 0.13, 0.07); },
       brick() {
@@ -254,6 +254,10 @@
         tone("triangle", 196, 392, 0.44, 0.06, 0.23);
         tone("sine", 588, 590, 0.58, 0.19, 0.32);
         tone("sine", 880, 880, 0.46, 0.31, 0.19);
+      },
+      ultimate(astral) {
+        tone("triangle", astral ? 540 : 220, 75, 0.4, 0, 0.35);
+        tone(astral ? "sine" : "sawtooth", astral ? 320 : 840, 125, 0.23, 0.055, 0.17);
       },
       temple() {
         tone("triangle", 133, 62, 0.52, 0, 0.33);
@@ -293,6 +297,199 @@
     };
   }
 
+  const translations = new Map([
+    ["READY", ["READY", "準備完了"]],
+    ["LEVEL {0}", ["LEVEL {0}", "ステージ {0}"]],
+    ["晴光草原", ["Sunlit Meadow", "陽だまりの草原"]],
+    ["暮光菇林", ["Twilight Woods", "薄暮のキノコ林"]],
+    ["星砂晶谷", ["Stardust Vale", "星砂の水晶谷"]],
+    ["霜風高地", ["Frost Highlands", "霜風の高原"]],
+    ["熔火遺跡", ["Molten Ruins", "溶岩の遺跡"]],
+    ["星砂守護者", ["Stardust Guardian", "星砂の守護者"]],
+    ["熔核巨像", ["Molten Colossus", "溶核の巨像"]],
+    ["彩虹彈", ["Rainbow Blaster", "レインボー弾"]],
+    ["星花散彈", ["Starshot", "スター散弾"]],
+    ["晶光穿透槍", ["Piercing Crystal", "貫通クリスタル"]],
+    ["閃電槍", ["Lightning Gun", "ライトニングガン"]],
+    ["噴火槍", ["Flamethrower", "火炎放射器"]],
+    ["火焰雷射槍", ["Flame Laser", "フレイムレーザー"]],
+    ["星界術師", ["Astral Mage", "星界の術師"]],
+    ["無限星界", ["Starfield", "無限星界"]],
+    ["虛空・紫星", ["Void Star", "虚空・紫星"]],
+    ["赤刃咒師", ["Crimson Mage", "赤刃の呪術師"]],
+    ["赤刃神殿", ["Red Shrine", "赤刃神殿"]],
+    ["次元斷界", ["Rift Slash", "次元断界"]],
+    ["必殺技", ["Ultimate", "必殺技"]],
+    ["蓄力剩餘時間", ["Charge time left", "チャージ残り時間"]],
+    ["遊戲設定", ["Settings", "ゲーム設定"]],
+    ["Pixel Blaster 遊戲區", ["Pixel Blaster play area", "Pixel Blaster プレイエリア"]],
+    ["Pixel Blaster 遊戲畫面", ["Pixel Blaster game screen", "Pixel Blaster ゲーム画面"]],
+    ["你的瀏覽器需要支援 HTML5 Canvas 才能遊玩。", ["Your browser needs HTML5 Canvas to play.", "プレイには HTML5 Canvas 対応のブラウザーが必要です。"]],
+    ["分數", ["Score", "スコア"]],
+    ["到終點的進度", ["Progress to the finish", "ゴールまでの進行度"]],
+    ["下一關", ["Next stage", "次のステージ"]],
+    ["重試本關", ["Retry stage", "このステージを再挑戦"]],
+    ["再玩一次", ["Play again", "もう一度プレイ"]],
+    ["觸控操作", ["Touch controls", "タッチ操作"]],
+    ["向左移動", ["Move left", "左に移動"]],
+    ["向右移動", ["Move right", "右に移動"]],
+    ["跳躍", ["Jump", "ジャンプ"]],
+    ["射擊", ["Fire", "ショット"]],
+    ["移動", ["Move", "移動"]],
+    ["發射", ["Fire", "ショット"]],
+    ["補給磚", ["Supply blocks", "補給ブロック"]],
+    ["切換武器", ["Switch weapon", "武器を切り替え"]],
+    ["切換", ["Switch", "切替"]],
+    ["一路向右抵達旗幟。從磚頭下方跳起可解鎖武器。", ["Reach the flag on the right. Jump into blocks from below to unlock weapons.", "右へ進んで旗を目指そう。ブロックを下から叩くと武器が解放されます。"]],
+    ["關閉設定", ["Close settings", "設定を閉じる"]],
+    ["最高分", ["High score", "ハイスコア"]],
+    ["瀏覽器目前無法儲存，進度僅保留到本頁關閉。", ["Progress can’t be saved in this browser. It will be lost when you close the page.", "ブラウザーに保存できません。このページを閉じると進行状況が失われます。"]],
+    ["背景音樂", ["Music", "BGM"]],
+    ["遊戲音效", ["Sound effects", "効果音"]],
+    ["♫ 音樂開", ["♫ Music on", "♫ BGMオン"]],
+    ["♫ 音樂關", ["♫ Music off", "♫ BGMオフ"]],
+    ["♪ 音效開", ["♪ Sound on", "♪ 効果音オン"]],
+    ["♪ 音效關", ["♪ Sound off", "♪ 効果音オフ"]],
+    ["切換遊戲音效", ["Toggle sound effects", "効果音を切り替え"]],
+    ["此瀏覽器無法播放遊戲音效", ["Sound is unavailable in this browser.", "このブラウザーでは効果音を再生できません。"]],
+    ["新手引導", ["Tutorial", "チュートリアル"]],
+    ["更換角色", ["Change character", "キャラクター変更"]],
+    ["重新開始", ["Restart", "最初から"]],
+    ["選擇角色", ["Choose a character", "キャラクター選択"]],
+    ["返回設定", ["Back to settings", "設定に戻る"]],
+    ["定住敵人", ["Freeze enemies", "敵の動きを止める"]],
+    ["持續斬擊", ["Repeated slashes", "連続斬撃"]],
+    ["目前角色", ["Current character", "使用中"]],
+    ["關閉武器清單", ["Close weapon list", "武器一覧を閉じる"]],
+    ["選擇武器", ["Choose weapon", "武器を選ぶ"]],
+    ["跳過引導", ["Skip tutorial", "スキップ"]],
+    ["下一步", ["Next", "次へ"]],
+    ["開始遊玩", ["Start playing", "プレイ開始"]],
+    ["繼續冒險", ["Continue your adventure", "冒険を続ける"]],
+    ["繼續遊戲", ["Continue", "続きから"]],
+    ["從頭開始", ["New game", "ニューゲーム"]],
+    ["從第一關重新開始？", ["Restart from stage 1?", "ステージ1からやり直しますか？"]],
+    ["這次冒險的分數與進度會重設。", ["Your score and progress for this run will reset.", "今回のスコアと進行状況がリセットされます。"]],
+    ["取消", ["Cancel", "キャンセル"]],
+    ["帳號", ["Account", "アカウント"]],
+    ["使用 ChatGPT 登入", ["Sign in with ChatGPT", "ChatGPTでログイン"]],
+    ["測試帳號 · 全武器已解鎖", ["Test account · All weapons unlocked", "テストアカウント · 全武器解放済み"]],
+    ["測試關卡", ["Test stage", "テストステージ"]],
+    ["開發測試", ["Developer tools", "開発用ツール"]],
+    ["無敵", ["Invincibility", "無敵"]],
+    ["領域無冷卻", ["No domain cooldown", "領域クールダウンなし"]],
+    ["必殺技無冷卻", ["No ultimate cooldown", "必殺技クールダウンなし"]],
+    ["無敵｜關", ["Invincibility · Off", "無敵 · オフ"]],
+    ["領域無冷卻｜關", ["No domain cooldown · Off", "領域クールダウンなし · オフ"]],
+    ["必殺技無冷卻｜關", ["No ultimate cooldown · Off", "必殺技クールダウンなし · オフ"]],
+    ["已登入 · 一般玩家", ["Signed in · Player", "ログイン済み · 通常プレイヤー"]],
+    ["登出", ["Sign out", "ログアウト"]],
+    ["開", ["On", "オン"]],
+    ["關", ["Off", "オフ"]],
+    ["鎖定", ["Locked", "ロック中"]],
+    ["未解鎖", ["Locked", "未解放"]],
+    ["施放中", ["Active", "発動中"]],
+    ["無冷卻", ["No cooldown", "待ち時間なし"]],
+    ["{0} 秒", ["{0} s", "{0} 秒"]],
+    ["通過暮光菇林後解鎖", ["Unlocks after Twilight Woods", "薄暮のキノコ林クリアで解放"]],
+    ["領域展開 · {0}", ["Domain · {0}", "領域展開 · {0}"]],
+    ["必殺技：{0}", ["Ultimate: {0}", "必殺技：{0}"]],
+    ["{0} · 開始蓄力", ["Charging {0}", "{0} · チャージ開始"]],
+    ["新技能解鎖！{0} · 按 K 或點技能按鈕，{1}。", ["Skill unlocked! {0} · Press K or tap the skill button to {1}.", "スキル解放！{0} · Kキーかスキルボタンで{1}。"]],
+    ["定住附近敵人 4 秒", ["freeze nearby enemies for 4 seconds", "近くの敵を4秒間停止"]],
+    ["持續斬擊附近敵人 4 秒", ["slash nearby enemies for 4 seconds", "近くの敵を4秒間連続斬撃"]],
+    ["按住左側的方向鍵，朝右邊的旗幟前進。鍵盤可用 ← → 或 A、D。", ["Hold a direction button on the left to move toward the flag on the right. On a keyboard, use ← and → or A and D.", "左側の方向ボタンを押して右の旗へ進もう。キーボードでは ← と →、または A と D を使います。"]],
+    ["點右側「跳躍」或按空白鍵。按住方向再跳，就能越過缺口。", ["Tap Jump on the right or press Space. Hold a direction while jumping to cross gaps.", "右側のジャンプをタップするか、スペースキーを押します。方向を押しながらジャンプすると穴を飛び越えられます。"]],
+    ["按住「射擊」或 X，朝面向的方向持續發射。移動和跳躍時也能射擊。", ["Hold Fire or X to shoot in the direction you’re facing. You can fire while moving or jumping.", "ショットかXキーを押し続けると、向いている方向に連射できます。移動中やジャンプ中も撃てます。"]],
+    ["站到補給磚正下方，跳起用頭頂它。新武器會自動裝備，點「切換」可查看武器清單。", ["Jump into supply blocks from below. New weapons equip automatically. Tap Switch to open the weapon list.", "補給ブロックを真下からジャンプして叩きます。新しい武器は自動装備され、「切替」で武器一覧を開けます。"]],
+    ["新手引導 · {0} / {1}", ["Tutorial · {0} / {1}", "チュートリアル · {0} / {1}"]],
+    ["{0} / {1} 點生命", ["{0} / {1} health", "ライフ {0} / {1}"]],
+    ["目前裝備{0}，切換武器", ["Equipped: {0}. Switch weapon.", "装備中：{0}。武器を切り替え"]],
+    ["，尚未解鎖", [", locked", "、未解放"]],
+    ["已切換至{0}", ["Switched to {0}", "{0}に切り替えました"]],
+    ["已解鎖｜{0}", ["Unlocked · {0}", "解放 · {0}"]],
+    ["第 {0} 關，{1}", ["Stage {0}, {1}", "ステージ{0}、{1}"]],
+    ["已選擇{0}", ["Selected {0}", "{0}を選びました"]],
+    ["{0}｜{1}", ["{0} · {1}", "{0} · {1}"]],
+    ["{0}通過！", ["{0} cleared!", "{0}クリア！"]],
+    ["五關全破！", ["All five stages cleared!", "全5ステージクリア！"]],
+    ["冒險暫告一段落", ["Run over", "冒険終了"]],
+    ["累計 {0} 分 · 下一關 {1}", ["Score {0} · Next: {1}", "スコア {0} · 次は{1}"]],
+    ["本次分數 {0}", ["Score {0}", "スコア {0}"]],
+    [" · 最高分 {0}", [" · High score {0}", " · ハイスコア {0}"]],
+    ["蓄力中斷 · ", ["Charge interrupted · ", "チャージ中断 · "]],
+    ["剩餘 {0} 點生命", ["Health left: {0}", "残りライフ：{0}"]],
+    ["頂開神器磚，解鎖{0}", ["Hit the artifact block to unlock {0}", "神器ブロックを叩いて{0}を解放"]],
+    ["從磚頭下方跳起，解鎖武器", ["Jump into the block from below to unlock a weapon", "下からブロックを叩いて武器を解放"]],
+    ["熔星雨 · 移入青帶", ["Molten Rain · Enter the teal lane", "溶星雨 · 青緑の帯へ"]],
+    ["彈牆 · 跳入缺口", ["Bullet Wall · Jump through the gap", "弾の壁 · 隙間にジャンプ"]],
+    ["星環 · 閃開地波", ["Star Ring · Dodge the ground wave", "星の輪 · 地を走る衝撃波を回避"]],
+    ["引晶追跡 · 待晶彈靠近再換向", ["Homing Crystals · Change direction as they approach", "追尾結晶 · 弾が近づいてから方向転換"]],
+    ["斜晶星陣 · 移入薄荷色光帶", ["Crystal Barrage · Enter the mint lane", "斜めの結晶弾 · ミント色の帯へ"]],
+    ["雙重地鳴 · 跳過兩道震波", ["Double Tremor · Jump over both waves", "二連地鳴り · 2本の衝撃波を飛び越える"]],
+    ["熔雨與地波 · 在青帶內跳躍", ["Rain and Wave · Jump inside the teal lane", "溶岩雨と衝撃波 · 青緑の帯の中でジャンプ"]],
+    ["{0}出現，終點封印啟動", ["{0} appeared. The exit is sealed.", "{0}が出現。出口が封鎖されました。"]],
+    ["領域影響 · 出招減速 {0}%", ["Domain · Attacks {0}% slower", "領域効果 · 攻撃速度 {0}%低下"]],
+    ["守護者甦醒", ["Guardian awakens", "守護者の目覚め"]],
+    ["結晶正在聚合", ["Crystals are gathering", "結晶が集まっている"]],
+    ["第二階段", ["Phase two", "第2形態"]],
+    ["WARNING — FINAL PHASE", ["WARNING — FINAL PHASE", "警告：最終形態"]],
+    ["核心露出", ["Core exposed", "コア露出"]],
+    ["瞄準巨像，立即攻擊！", ["Aim at the Colossus and attack now!", "巨像を狙って今すぐ攻撃！"]],
+    ["星砂晶陣", ["Crystal formation", "星砂の結晶陣"]],
+    ["暴走 · 核心封閉", ["Enraged · Core sealed", "暴走 · コア閉鎖"]],
+    ["第一階段", ["Phase one", "第1形態"]],
+    ["WARNING — FINAL PHASE · 核心只在組合攻擊後露出", ["WARNING — FINAL PHASE · The core opens after combo attacks", "警告：最終形態 · 連続攻撃の後にだけコアが露出"]],
+    ["{0}已擊敗，終點封印解除", ["{0} defeated. The exit is open.", "{0}を撃破。出口の封鎖が解除されました。"]],
+    ["關卡起點", ["Stage start", "ステージ開始地点"]],
+    ["最近的地面檢查點", ["Latest ground checkpoint", "最後の地上チェックポイント"]],
+    ["第 {0} 關「{1}」 · {2} · 最高分 {3}", ["Stage {0}: {1} · {2} · High score {3}", "ステージ{0}「{1}」 · {2} · ハイスコア {3}"]],
+    ["重玩第五關", ["Replay stage 5", "ステージ5を再プレイ"]],
+    ["語言 / Language / 言語", ["語言 / Language / 言語", "語言 / Language / 言語"]],
+  ]);
+  const localeIndex = new Map([["en", 0], ["ja", 1]]);
+  const localeKey = "pixel-blaster-language";
+  const languagePickers = [...document.querySelectorAll("[data-language]")];
+  let language = "zh-Hant";
+  try {
+    const saved = window.localStorage.getItem(localeKey);
+    if (localeIndex.has(saved)) language = saved;
+  } catch {}
+
+  function translate(source) {
+    return translations.get(source)?.[localeIndex.get(language)] ?? source;
+  }
+
+  function t(source, ...values) {
+    return translate(source).replace(/\{(\d+)\}/g, (_, index) => translate(values[index]));
+  }
+
+  // Record the original HTML and account panel text once so switching never
+  // depends on the current translation or rebuilds controls and event bindings.
+  const staticCopy = [];
+  const textNodes = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  while (textNodes.nextNode()) {
+    const node = textNodes.currentNode;
+    const source = node.data.trim();
+    if (translations.has(source)) {
+      const original = node.data;
+      staticCopy.push(() => { node.data = original.replace(source, t(source)); });
+    }
+  }
+  for (const element of document.querySelectorAll("[aria-label], [title]")) {
+    for (const attribute of ["aria-label", "title"]) {
+      const source = element.getAttribute(attribute);
+      if (translations.has(source)) staticCopy.push(() => element.setAttribute(attribute, t(source)));
+    }
+  }
+
+  function applyStaticLanguage() {
+    document.documentElement.lang = language;
+    for (const updateCopy of staticCopy) updateCopy();
+    for (const picker of languagePickers) picker.value = language;
+  }
+
+  applyStaticLanguage();
   const sound = createGameAudio();
 
   const canvas = document.querySelector("#game");
@@ -335,7 +532,7 @@
       platforms: meadowPlatforms, enemies: meadowEnemies, gems: meadowGems, supplies: [[206, 159, 1]]
     },
     {
-      name: "暮光菇林", width: 2210, goal: 2115, theme: "grove", supplies: [[210, 159, 4], [551, 157, 3]],
+      name: "暮光菇林", width: 2210, goal: 2115, theme: "grove", supplies: [[210, 159, 4]],
       platforms: [
         [0, groundY, 375], [433, groundY, 374], [871, groundY, 380],
         [1314, groundY, 357], [1732, groundY, 478],
@@ -405,7 +602,7 @@
         [1871, 166], [1994, 136], [2144, 160]]
     },
     {
-      name: "熔火遺跡", width: 2260, goal: 2188, theme: "ruins", supplies: [],
+      name: "熔火遺跡", width: 2260, goal: 2188, theme: "ruins", supplies: [[1704, 159, 3]],
       arena: { kind: "magma", name: "熔核巨像", start: 1732, bossX: 2011, gate: 2149 },
       platforms: [
         [0, groundY, 364], [427, groundY, 359], [856, groundY, 358],
@@ -434,9 +631,9 @@
       damage: 1, hits: 1, w: 6, h: 4, color: "#ffd86b" },
     { name: "晶光穿透槍", cooldown: 0.56, life: 1.12, speed: 405, spread: [0],
       damage: 3, hits: 3, w: 15, h: 7, color: "#6feaff" },
-    { name: "閃電槍", kind: "lightning", artifact: true, cooldown: 0.15, damage: 3,
+    { name: "閃電槍", kind: "lightning", artifact: true, cooldown: 0.15, damage: 2.5,
       range: 285, chainRange: 112, targets: 5, color: "#aadfff" },
-    { name: "噴火槍", cooldown: 0.11, life: 0.24, speed: 245, spread: [-52, -19, 17], kind: "flame",
+    { name: "噴火槍", cooldown: 0.11, life: 0.32, speed: 245, spread: [-52, -19, 17], kind: "flame",
       damage: 1, hits: 1, w: 8, h: 7, color: "#ff9258" },
     { name: "火焰雷射槍", kind: "beam", artifact: true, cooldown: 0.18, damage: 2, range: 240, h: 10, color: "#ffc961" }
   ];
@@ -476,6 +673,7 @@
   const bossHealth = document.querySelector("#boss-health");
   const bossWarning = document.querySelector("#boss-warning");
   const testLevel = document.querySelector("#test-level");
+  let testInvincible = false, testNoCooldown = false, testUltimateNoCooldown = false;
   const nextButton = document.querySelector("#next-level");
   const levelNumber = document.querySelector("#level-number");
   const levelName = document.querySelector("#level-name");
@@ -499,6 +697,7 @@
   const stageProgress = document.querySelector("#stage-progress");
   const screen = document.querySelector("#screen");
   const bossPhase = document.querySelector("#boss-phase");
+  const bossDomain = document.querySelector("#boss-domain");
   const portrait = matchMedia("(orientation: portrait) and (any-pointer: coarse) and (max-width: 600px)");
   const characterPanel = document.querySelector("#character-panel");
   const characterCancel = document.querySelector("#cancel-character");
@@ -519,14 +718,24 @@
   const domainName = document.querySelector("#domain-name");
   const domainDuration = 4 * 60;
   const domainRecovery = 60 * 60;
+  const ultimateChargeTime = 5 * 60;
+  const ultimateRecovery = 120 * 60;
+  const ultimateInterruptRecovery = 15 * 60;
+  const ultimateDamage = 60;
+  const ultimateSlashWidth = 450;
+  const ultimateSlashHeight = 144;
+  const ultimateButton = document.querySelector("#ultimate-skill");
+  const ultimateStatus = document.querySelector("#ultimate-status");
+  const ultimateProgress = document.querySelector("#ultimate-progress");
+  let ultimateCharge = 0, ultimateCooldown = 0, ultimateOrb, ultimateSlash;
   const characters = {
     astral: {
-      name: "星界術師", skill: "無限星界", freeze: true, bossPace: 0.70,
+      name: "星界術師", skill: "無限星界", ultimate: "虛空・紫星", freeze: true, bossPace: 0.50,
       pulse: 60, damage: 1, bossDamage: 1, color: "#c7c2ff",
       tip: "定住附近敵人 4 秒", backdrop: domainBackdrop, sound: sound.domain
     },
     crimson: {
-      name: "赤刃咒師", skill: "赤刃神殿", freeze: false, bossPace: 1,
+      name: "赤刃咒師", skill: "赤刃神殿", ultimate: "次元斷界", freeze: false, bossPace: 0.75,
       pulse: 30, damage: 2, bossDamage: 0.5, color: "#ff8489",
       tip: "持續斬擊附近敵人 4 秒", backdrop: templeBackdrop, sound: sound.temple
     }
@@ -535,25 +744,29 @@
   const bossName = document.querySelector("#boss-name");
 
   function refreshDomain() {
-    const seconds = Math.ceil(domainCooldown / 60);
-    const label = !domainUnlocked ? "鎖定" : seconds ? seconds + " 秒" : "READY";
-    const { skill } = characters[characterId];
+    const seconds = testNoCooldown ? 0 : Math.ceil(domainCooldown / 60);
+    const ready = domainUnlocked && domainTicks === 0 && seconds === 0;
+    const label = !domainUnlocked ? t("鎖定") : testNoCooldown
+      ? t(domainTicks > 0 ? "施放中" : "無冷卻")
+      : seconds ? t("{0} 秒", seconds) : t("READY");
+    const skill = t(characters[characterId].skill);
     if (domainStatus.textContent === label && domainName.textContent === skill) return;
     domainName.textContent = skill;
     domainStatus.textContent = label;
-    domainButton.dataset.ready = String(domainUnlocked && !seconds);
-    domainButton.setAttribute("aria-disabled", String(!domainUnlocked || seconds > 0));
-    domainButton.title = domainUnlocked ? `K · ${skill} · ${label}` : "通過暮光菇林後解鎖";
+    domainButton.dataset.ready = String(ready);
+    domainButton.setAttribute("aria-disabled", String(!ready));
+    domainButton.title = domainUnlocked ? `K · ${skill} · ${label}` : t("通過暮光菇林後解鎖");
   }
 
   function castDomain() {
-    if (state !== "playing" || menuOpen() || !domainUnlocked || domainTicks > 0 || domainCooldown > 0) return;
+    if (state !== "playing" || menuOpen() || !domainUnlocked || domainTicks > 0 || (!testNoCooldown && domainCooldown > 0)) return;
     activeDomain = characters[characterId];
     domainTicks = domainDuration;
     domainCooldown = domainRecovery;
     activeDomain.sound();
+    if (boss && !bossHud.hidden) updateBossDomain(boss);
     refreshDomain();
-    announceStatus(`領域展開 · ${activeDomain.skill}`);
+    announceStatus(t("領域展開 · {0}", activeDomain.skill));
     saveRun();
   }
 
@@ -573,7 +786,11 @@
           }
         }
       }
-      if (--domainTicks === 0) activeDomain = null;
+      if (--domainTicks === 0) {
+        activeDomain = null;
+        refreshDomain();
+        if (boss && !bossHud.hidden) updateBossDomain(boss);
+      }
     }
     if (domainCooldown > 0) {
       domainCooldown--;
@@ -584,11 +801,87 @@
     }
   }
 
+  function refreshUltimate() {
+    const charging = ultimateCharge > 0;
+    const ready = !charging && (testUltimateNoCooldown || ultimateCooldown === 0);
+    const label = charging ? `${(Math.ceil(ultimateCharge / 6) / 10).toFixed(1)}s`
+      : testUltimateNoCooldown ? t("無冷卻") : ready ? t("READY") : t("{0} 秒", Math.ceil(ultimateCooldown / 60));
+    const ultimate = t(characters[characterId].ultimate);
+    if (ultimateStatus.textContent !== label) ultimateStatus.textContent = label;
+    if (ultimateProgress.hidden !== !charging) ultimateProgress.hidden = !charging;
+    if (charging) ultimateProgress.value = ultimateCharge;
+    if (ultimateButton.dataset.ready !== String(ready)) {
+      ultimateButton.dataset.ready = String(ready);
+      ultimateButton.setAttribute("aria-disabled", String(!ready));
+    }
+    const title = `L · ${ultimate}`;
+    if (ultimateButton.title !== title) {
+      ultimateButton.title = title;
+      ultimateButton.setAttribute("aria-label", t("必殺技：{0}", ultimate));
+    }
+  }
+
+  function beginUltimate() {
+    if (state !== "playing" || menuOpen() || ultimateCharge || (!testUltimateNoCooldown && ultimateCooldown > 0)) return;
+    ultimateCharge = ultimateChargeTime;
+    player.vx = clamp(player.vx, -70, 70);
+    beam = null;
+    arcs = [];
+    sound.sustain(null);
+    refreshUltimate();
+    announceStatus(t("{0} · 開始蓄力", characters[characterId].ultimate));
+    saveRun();
+  }
+
+  function cancelUltimate() {
+    if (!ultimateCharge) return;
+    ultimateCharge = 0;
+    ultimateCooldown = ultimateInterruptRecovery;
+    pendingSave = true;
+    refreshUltimate();
+  }
+
+  function clearUltimate() {
+    cancelUltimate();
+    ultimateOrb = null;
+    ultimateSlash = null;
+  }
+
+  function releaseUltimate() {
+    ultimateCooldown = ultimateRecovery;
+    const direction = player.facing;
+    const x = player.x + (direction > 0 ? player.w : 0);
+    const y = player.y + 13;
+    if (characterId === "astral") {
+      ultimateOrb = { x: direction > 0 ? x : x - 40, y: y - 18, w: 40, h: 36,
+        vx: direction * 385, vy: 0, life: 1.45, hits: Infinity, damage: ultimateDamage,
+        struck: new Set(), color: "#d69bff" };
+    } else {
+      ultimateSlash = { x: direction > 0 ? x : x - ultimateSlashWidth, y: y - ultimateSlashHeight / 2,
+        w: ultimateSlashWidth, h: ultimateSlashHeight, direction, life: 0.32 };
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
+        if (intersects(ultimateSlash, enemy)) damageEnemy(enemy, ultimateDamage, "#ff978c", direction);
+      }
+    }
+    sound.ultimate(characterId === "astral");
+    refreshUltimate();
+    announceStatus(t(characters[characterId].ultimate));
+    pendingSave = true;
+  }
+
+  let supplyCopy = [];
+  function setSupplyCopy(...copy) {
+    supplyCopy = copy;
+    const message = t(...copy);
+    if (supplyMessage.textContent !== message) supplyMessage.textContent = message;
+  }
+
   function showDomainNotice() {
     if (!domainNotice || levelIndex !== 2) return;
     domainNotice = false;
     const { skill, tip } = characters[characterId];
-    supplyMessage.textContent = `新技能解鎖！${skill} · 按 K 或點技能按鈕，${tip}。`;
+    setSupplyCopy("新技能解鎖！{0} · 按 K 或點技能按鈕，{1}。", skill, tip);
     supplyMessage.hidden = false;
     unlockUntil = time + 6;
     announceStatus(supplyMessage.textContent);
@@ -682,7 +975,8 @@
   }
   function checkpoint(stage, base, hp) {
     return { v: 1, stage, base, score: base, hp, guns: [...unlocked], weapon: weaponIndex,
-      domain: stage >= 2, cooldown: domainCooldown, domainNotice, floor: 64, picked: [], beaten: [] };
+      domain: stage >= 2, cooldown: domainCooldown, domainNotice,
+      ultimateCooldown: ultimateCharge ? ultimateInterruptRecovery : ultimateCooldown, floor: 64, picked: [], beaten: [] };
   }
   function saveRun() {
     if (!allowSave || state !== "playing") return;
@@ -697,6 +991,7 @@
     continuePanel.close();
     allowSave = true;
     domainCooldown = integer(r.cooldown, 0, 3600) ? r.cooldown : 0;
+    ultimateCooldown = integer(r.ultimateCooldown, 0, ultimateRecovery) ? r.ultimateCooldown : 0;
     domainNotice = r.stage === 2 && (r.domainNotice === true || r.domain === undefined);
     score = r.base;
     health = r.hp;
@@ -725,9 +1020,9 @@
   ];
   let guideIndex = 0;
   function drawGuide() {
-    guideStep.textContent = `新手引導 · ${guideIndex + 1} / ${guideSteps.length}`;
-    [guideTitle.textContent, guideTip.textContent] = guideSteps[guideIndex];
-    guideNext.textContent = guideIndex === guideSteps.length - 1 ? "開始遊玩" : "下一步";
+    guideStep.textContent = t("新手引導 · {0} / {1}", guideIndex + 1, guideSteps.length);
+    [guideTitle.textContent, guideTip.textContent] = guideSteps[guideIndex].map(translate);
+    guideNext.textContent = t(guideIndex === guideSteps.length - 1 ? "開始遊玩" : "下一步");
   }
   function showGuide() {
     guideIndex = 0;
@@ -753,7 +1048,7 @@
 
   function updateHud() {
     scoreLabel.textContent = String(score).padStart(4, "0");
-    healthLabel.setAttribute("aria-label", `${health} / ${maxHealth} 點生命`);
+    healthLabel.setAttribute("aria-label", t("{0} / {1} 點生命", health, maxHealth));
     hearts.forEach((heart, index) => heart.classList.toggle("empty", index >= health));
   }
 
@@ -771,11 +1066,11 @@
   }
 
   function updateWeapons() {
-    equipped.textContent = weapons[weaponIndex].name;
-    weaponToggle.setAttribute("aria-label", `目前裝備${equipped.textContent}，切換武器`);
+    equipped.textContent = t(weapons[weaponIndex].name);
+    weaponToggle.setAttribute("aria-label", t("目前裝備{0}，切換武器", weapons[weaponIndex].name));
     weaponButtons.forEach((button, i) => {
       button.disabled = !unlocked.has(i);
-      button.setAttribute("aria-label", `${i + 1} · ${weapons[i].name}${button.disabled ? "，尚未解鎖" : ""}`);
+      button.setAttribute("aria-label", `${i + 1} · ${t(weapons[i].name)}${button.disabled ? t("，尚未解鎖") : ""}`);
       button.setAttribute("aria-pressed", String(i === weaponIndex));
     });
   }
@@ -788,7 +1083,7 @@
     arcs = [];
     updateWeapons();
     saveRun();
-    announceStatus(`已切換至${weapons[index].name}`);
+    announceStatus(t("已切換至{0}", weapons[index].name));
   }
 
   function bumpBrick(brick) {
@@ -797,13 +1092,20 @@
     unlocked.add(brick.weapon);
     brick.bump = 0.23;
     selectWeapon(brick.weapon);
-    supplyMessage.textContent = `已解鎖｜${weapons[brick.weapon].name}`;
+    setSupplyCopy("已解鎖｜{0}", weapons[brick.weapon].name);
     supplyMessage.hidden = false;
     unlockUntil = time + 2.2;
     burst(brick.x + brick.w / 2, brick.y - 2, ["#fff8c4", weapons[brick.weapon].color], 15);
   }
 
+  function updateLevelName() {
+    levelNumber.textContent = t("LEVEL {0}", String(levelIndex + 1).padStart(2, "0"));
+    levelName.textContent = t(level.name);
+    document.title = `Pixel Blaster｜${levelName.textContent}`;
+  }
+
   function startLevel(index, focus = false) {
+    clearUltimate();
     clearInputs();
     levelIndex = index;
     level = levels[index];
@@ -852,21 +1154,22 @@
     shotIndex = 0;
     time = 0;
     state = "playing";
+    refreshUltimate();
     refreshDomain();
     showDomainNotice();
     result.hidden = true;
-    levelNumber.textContent = `LEVEL 0${index + 1}`;
-    levelName.textContent = level.name;
-    document.title = `Pixel Blaster｜${level.name}`;
+    updateLevelName();
     updateProgress();
     updateHud();
     if (focus) {
       canvas.focus({ preventScroll: true });
-      announceStatus(`第 ${index + 1} 關，${level.name}`);
+      announceStatus(t("第 {0} 關，{1}", index + 1, level.name));
     }
   }
 
   function reset(focus = false) {
+    clearUltimate();
+    ultimateCooldown = 0;
     domainCooldown = 0;
     domainNotice = false;
     score = 0;
@@ -905,6 +1208,11 @@
 
   window.addEventListener("keydown", event => {
     if (menuOpen() || event.ctrlKey || event.altKey || event.metaKey || event.target.closest?.("select, a")) return;
+    if (event.code === "KeyL") {
+      event.preventDefault();
+      if (!event.repeat) { sound.unlock(); beginUltimate(); }
+      return;
+    }
     if (event.code === "KeyK") {
       event.preventDefault();
       if (!event.repeat) { sound.unlock(); castDomain(); }
@@ -961,6 +1269,7 @@
       button.classList.add("pressed");
       if (button.dataset.action === "jump") jumpBuffer = 0.13;
       if (button.dataset.action === "domain") castDomain();
+      if (button.dataset.action === "ultimate") beginUltimate();
     });
 
     button.addEventListener("pointerup", event => { sound.unlock(); releaseTouch(event); });
@@ -968,8 +1277,16 @@
     button.addEventListener("lostpointercapture", event => {
       if (pointers.get(event.pointerId) === button) releaseTouch(event);
     });
+    // Pointer events already handle these controls. Suppress the legacy touch
+    // default so rapid taps cannot trigger WebKit smart zoom.
+    button.addEventListener("touchend", event => {
+      if (event.cancelable) event.preventDefault();
+    }, { passive: false });
     button.addEventListener("contextmenu", event => event.preventDefault());
   }
+  ultimateButton.addEventListener("click", event => {
+    if (event.detail === 0) { sound.unlock(); beginUltimate(); }
+  });
   domainButton.addEventListener("click", event => {
     if (event.detail === 0) { sound.unlock(); castDomain(); }
   });
@@ -1022,11 +1339,15 @@
   });
   for (const card of characterCards) {
     card.addEventListener("click", () => {
-      characterId = card.dataset.character;
+      const nextCharacter = card.dataset.character;
+      if (characterId !== nextCharacter) clearUltimate();
+      characterId = nextCharacter;
+      refreshUltimate();
+      if (pendingSave) saveRun();
       writeLocal("character", characterId);
       characterPanel.close();
       refreshDomain();
-      announceStatus(`已選擇${characters[characterId].name}`);
+      announceStatus(t("已選擇{0}", characters[characterId].name));
       if (choosingAtLaunch) {
         choosingAtLaunch = false;
         beginAdventure();
@@ -1061,8 +1382,27 @@
     reset(true);
     saveRun();
   });
+  function updateTestToggle(button, label) {
+    button.textContent = t("{0}｜{1}", label, button.getAttribute("aria-pressed") === "true" ? "開" : "關");
+  }
+
+  const testToggles = [
+      ["test-invincible", "無敵", () => (testInvincible = !testInvincible)],
+      ["test-domain-cooldown", "領域無冷卻", () => (testNoCooldown = !testNoCooldown)],
+      ["test-ultimate-cooldown", "必殺技無冷卻", () => (testUltimateNoCooldown = !testUltimateNoCooldown)]
+  ];
   if (testLevel) {
-    levels.forEach((level, index) => testLevel.add(new Option(`${index + 1} · ${level.name}`, String(index))));
+    for (const [id, label, toggle] of testToggles) {
+      const button = document.querySelector("#" + id);
+      button?.addEventListener("click", () => {
+        const enabled = toggle();
+        button.setAttribute("aria-pressed", String(enabled));
+        updateTestToggle(button, label);
+        refreshDomain();
+        refreshUltimate();
+      });
+    }
+    levels.forEach((level, index) => testLevel.add(new Option(`${index + 1} · ${t(level.name)}`, String(index))));
     testLevel.addEventListener("change", () => {
       const index = Number(testLevel.value);
       if (!Number.isInteger(index) || !levels[index]) return;
@@ -1088,17 +1428,22 @@
   document.addEventListener("click", sound.unlock);
   canvas.tabIndex = -1;
 
+  function updateResultCopy() {
+    const more = state === "cleared";
+    resultTitle.textContent = more ? t("{0}通過！", level.name) : t(state === "won" ? "五關全破！" : "冒險暫告一段落");
+    resultDetail.textContent = (more ? t("累計 {0} 分 · 下一關 {1}", score, levels[levelIndex + 1].name)
+      : t("本次分數 {0}", score)) + t(" · 最高分 {0}", best);
+  }
+
   function finish(won) {
+    clearUltimate();
     const more = won && levelIndex + 1 < levels.length;
     if (won && levelIndex === 1) domainNotice = true;
     state = more ? "cleared" : won ? "won" : "lost";
     clearInputs();
     sound.setTrack(null);
     sound.finish(won);
-    resultTitle.textContent = more ? `${level.name}通過！` : won ? "五關全破！" : "冒險暫告一段落";
-    resultDetail.textContent = more
-      ? `累計 ${score} 分 · 下一關 ${levels[levelIndex + 1].name}`
-      : `本次分數 ${score}`;
+    updateResultCopy();
     updateProgress();
     if (allowSave) {
       const next = more ? levelIndex + 1 : levelIndex;
@@ -1111,7 +1456,6 @@
     replay.hidden = more || (!won && levelIndex === 0);
     nextButton.hidden = !more;
     result.hidden = false;
-    resultDetail.textContent += ` · 最高分 ${best}`;
     resultTitle.focus({ preventScroll: true });
   }
 
@@ -1134,12 +1478,24 @@
     }
   }
 
+  function respawnPlayer() {
+    Object.assign(player, { x: player.respawn, y: groundY - player.h, vx: 0,
+      vy: 0, grounded: true, grace: 0 });
+    resetCamera();
+  }
+
   function hurt(enemy) {
     if (state !== "playing" || (enemy && player.immunity > 0)) return;
+    if (testInvincible) {
+      if (!enemy) respawnPlayer();
+      return;
+    }
+    const interrupted = ultimateCharge > 0;
+    cancelUltimate();
     health--;
     pendingSave = true;
     updateHud();
-    announceStatus(`剩餘 ${health} 點生命`);
+    announceStatus((interrupted ? t("蓄力中斷 · ") : "") + t("剩餘 {0} 點生命", health));
     if (health === 0) {
       finish(false);
       return;
@@ -1154,18 +1510,20 @@
       player.grace = 0;
       burst(player.x + 8, player.y + 10, ["#ff83aa", "#fff1c7"]);
     } else {
-      Object.assign(player, { x: player.respawn, y: groundY - player.h, vx: 0,
-        vy: 0, grounded: true, grace: 0 });
-      resetCamera();
+      respawnPlayer();
     }
   }
 
   function update(dt) {
+    if (ultimateCooldown > 0 && --ultimateCooldown % 60 === 0) {
+      refreshUltimate();
+      pendingSave = true;
+    }
     previousPlayerX = player.x;
     time += dt;
     const movement = Number(held("right")) - Number(held("left"));
     if (movement) player.facing = movement;
-    const targetSpeed = movement * 140;
+    const targetSpeed = movement * (ultimateCharge > 0 ? 70 : 140);
     player.vx += clamp(targetSpeed - player.vx, -1500 * dt, 1500 * dt);
     player.cooldown = Math.max(0, player.cooldown - dt);
     if (player.immunity > 0) {
@@ -1235,6 +1593,8 @@
     if (crystalDefeat) crystalDefeat.life -= dt;
     updateWeapon();
     shots = shots.filter(shot => advanceShot(shot, dt));
+    if (ultimateOrb && !advanceShot(ultimateOrb, dt)) ultimateOrb = null;
+    if (ultimateSlash && (ultimateSlash.life -= dt) <= 0) ultimateSlash = null;
     enemyShots = enemyShots.filter(shot => {
       if (!moveShot(shot, dt)) return false;
       if (shot.delay > 0 || !intersects(player, shot)) return true;
@@ -1254,6 +1614,10 @@
 
     const contact = enemies.find(enemy => intersects(player, enemy));
     if (contact) hurt(contact);
+    if (ultimateCharge > 0) {
+      if (--ultimateCharge === 0) releaseUltimate();
+      else refreshUltimate();
+    }
     if (state === "playing" && !(boss?.hp > 0) && player.x + player.w >= level.goal && player.y + player.h >= groundY - 57) {
       finish(true);
     }
@@ -1277,16 +1641,15 @@
       Math.abs(player.x + player.w / 2 - brick.x - brick.w / 2) < 74);
     supplyMessage.hidden = !nearby;
     if (nearby) {
-      supplyMessage.textContent = weapons[nearby.weapon].artifact
-        ? `頂開神器磚，解鎖${weapons[nearby.weapon].name}`
-        : "從磚頭下方跳起，解鎖武器";
+      if (weapons[nearby.weapon].artifact) setSupplyCopy("頂開神器磚，解鎖{0}", weapons[nearby.weapon].name);
+      else setSupplyCopy("從磚頭下方跳起，解鎖武器");
     }
   }
 
   function updateWeapon() {
     beam = null;
     arcs = [];
-    const firing = held("fire");
+    const firing = !ultimateCharge && held("fire");
     const weapon = weapons[weaponIndex];
     const continuous = weapon.kind === "beam" || weapon.kind === "lightning";
     sound.sustain(firing && continuous ? weapon.kind : null);
@@ -1507,10 +1870,10 @@
         enemy.timer = 1.15;
         sound.crystalEnter();
       } else prepareBarrage(enemy);
-      bossName.textContent = level.arena.name;
+      bossName.textContent = t(level.arena.name);
       bossHealth.max = enemy.maxHp;
       bossHud.hidden = false;
-      announceStatus(level.arena.name + "出現，終點封印啟動");
+      announceStatus(t("{0}出現，終點封印啟動", level.arena.name));
     }
     enemy.direction = player.x + player.w / 2 < enemy.x + enemy.w / 2 ? -1 : 1;
     enemy.timer -= dt;
@@ -1532,7 +1895,18 @@
     updateBossHud(enemy);
   }
 
+  function updateBossDomain(enemy) {
+    const affected = enemy.hp > 0 && enemy.mode !== "dormant" && inDomain(enemy);
+    bossDomain.hidden = !affected;
+    if (affected) {
+      const percent = Math.round((1 - activeDomain.bossPace) * 100);
+      const label = t("領域影響 · 出招減速 {0}%", percent);
+      if (bossDomain.textContent !== label) bossDomain.textContent = label;
+    }
+  }
+
   function updateBossHud(enemy) {
+    updateBossDomain(enemy);
     bossHealth.value = Math.max(0, enemy.hp);
     let phase, warning;
     if (enemy.mode === "intro") {
@@ -1545,6 +1919,8 @@
       phase = enemy.kind === "crystal" ? "星砂晶陣" : enemy.phase === 2 ? "暴走 · 核心封閉" : "第一階段";
       warning = bossCues[enemy.attack];
     }
+    phase = t(phase);
+    warning = t(warning);
     if (bossPhase.textContent !== phase) bossPhase.textContent = phase;
     if (bossHud.dataset.mode !== enemy.mode) bossHud.dataset.mode = enemy.mode;
     if (bossWarning.textContent !== warning) bossWarning.textContent = warning;
@@ -1607,7 +1983,7 @@
       enemyShots = [];
       sound.phaseShift();
       sound.setTrack("finalPhase");
-      announceStatus("WARNING — FINAL PHASE · 核心只在組合攻擊後露出");
+      announceStatus(t("WARNING — FINAL PHASE · 核心只在組合攻擊後露出"));
     }
     enemy.flash = 0.14;
     const defeated = enemy.hp <= 0;
@@ -1629,7 +2005,7 @@
           crystalDefeat = { x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, life: 0.95 };
           sound.crystalDefeat();
         }
-        announceStatus(level.arena.name + "已擊敗，終點封印解除");
+        announceStatus(t("{0}已擊敗，終點封印解除", level.arena.name));
       }
     }
   }
@@ -2541,6 +2917,58 @@
     sparkle(toX, toY, "#ccffff", 4);
   }
 
+  function ultimateArt() {
+    ctx.save();
+    if (ultimateCharge) {
+      const progress = 1 - ultimateCharge / ultimateChargeTime;
+      const direction = player.facing;
+      const x = player.x + player.w / 2 + direction * (14 + progress * 10);
+      const y = player.y + 13;
+      if (characterId === "astral") {
+        const radius = 3 + Math.floor(progress * 15);
+        const separation = 17 * (1 - progress);
+        rect(x - radius, y - radius / 2, radius * 2, radius, "#8b53bdad");
+        sparkle(x - separation, y - separation * 0.65, "#79dcff", 5);
+        sparkle(x + separation, y + separation * 0.65, "#ff8c9f", 5);
+        sparkle(x, y, "#dba5ff", radius);
+      } else {
+        // The rift trembles locally. Terrain, enemies and the HUD stay anchored.
+        const tremor = !reduceMotion && progress > 0.45 ? Math.round(Math.sin(time * 19)) : 0;
+        const extent = Math.floor(18 + progress * (ultimateSlashWidth / 2 - 18));
+        for (let d = 0; d < extent; d += 6) {
+          const px = x + direction * d;
+          const py = y + tremor + (d % 18 === 0 ? 2 : -2) - d * 0.16;
+          rect(px, py - 3, 7, 7, "#371220d9");
+          rect(px, py, 6, 2, "#ff7d889d");
+        }
+      }
+    }
+    if (ultimateOrb) {
+      const { x, y, w, h, vx } = ultimateOrb;
+      const front = vx > 0;
+      const center = x + w / 2, middle = y + h / 2;
+      rect(front ? x - 20 : x + 20, middle - 6, 42, 12, "#984bcb93");
+      rect(x + 3, y + 5, w - 6, h - 10, "#8548bc");
+      rect(x + 10, y, w - 20, h, "#a46be2");
+      rect(x + 7, y + 7, w - 14, h - 14, "#c28aef");
+      sparkle(center, middle, "#eed8ff", 10);
+    }
+    if (ultimateSlash) {
+      const { x, y, w, h, direction, life } = ultimateSlash;
+      ctx.globalAlpha = Math.min(0.75, life / 0.32);
+      rect(x, y, w, h, "#f43d6320");
+      for (let i = 0; i < w; i += 8) {
+        const segment = Math.min(8, w - i);
+        const px = direction > 0 ? x + i : x + w - i - segment;
+        const py = y + h * 0.73 - i / w * h * 0.53;
+        rect(px, py - 11, segment, 23, "#401727");
+        rect(px, py - 6, segment, 13, "#e64f65");
+        rect(px, py - 1, segment, 3, "#ffd0ad");
+      }
+    }
+    ctx.restore();
+  }
+
   function render(alpha = 1) {
     if (normalViewWidth() !== baseViewWidth) resetCamera();
     const drawX = previousPlayerX + (player.x - previousPlayerX) * alpha;
@@ -2562,6 +2990,7 @@
       if (platform.weapon === undefined) platformArt(platform);
     }
     terrainPalette = undefined;
+    ultimateArt();
     if (boss?.hp > 0 && boss.mode !== "dormant") barrageGuide();
     bricks.forEach(brickArt);
     if (camera < 50) sign(27);
@@ -2613,14 +3042,52 @@
     requestAnimationFrame(frame);
   }
 
+  function updateContinueCopy() {
+    if (!savedRun) return;
+    const map = levels[savedRun.stage];
+    const at = savedRun.floor === 64 ? "關卡起點" : "最近的地面檢查點";
+    document.querySelector("#save-detail").textContent = t("第 {0} 關「{1}」 · {2} · 最高分 {3}", savedRun.stage + 1, map.name, at, best);
+    document.querySelector("#continue-game").textContent = t(savedRun.completed ? "重玩第五關" : "繼續遊戲");
+  }
+
+  for (const picker of languagePickers) {
+    picker.addEventListener("change", () => {
+      language = localeIndex.has(picker.value) ? picker.value : "zh-Hant";
+      try { window.localStorage.setItem(localeKey, language); }
+      catch { storageNotice.hidden = false; }
+      applyStaticLanguage();
+      sound.updateButton();
+      updateLevelName();
+      updateHud();
+      updateWeapons();
+      refreshDomain();
+      refreshUltimate();
+      drawGuide();
+      updateContinueCopy();
+      if (!supplyMessage.hidden && supplyCopy.length) setSupplyCopy(...supplyCopy);
+      if (!result.hidden) updateResultCopy();
+      if (boss && !bossHud.hidden) {
+        bossName.textContent = t(level.arena.name);
+        updateBossHud(boss);
+      }
+      if (testLevel) {
+        for (const [i, option] of [...testLevel.options].entries()) {
+          option.textContent = `${i + 1} · ${t(levels[i].name)}`;
+        }
+        for (const [id, label] of testToggles) {
+          const button = document.querySelector("#" + id);
+          if (button) updateTestToggle(button, label);
+        }
+      }
+      announceStatus("");
+    });
+  }
+
   reset();
   bestLabel.textContent = String(best);
   function beginAdventure() {
     if (savedRun) {
-      const map = levels[savedRun.stage];
-      const at = savedRun.floor === 64 ? "關卡起點" : "最近的地面檢查點";
-      document.querySelector("#save-detail").textContent = `第 ${savedRun.stage + 1} 關「${map.name}」 · ${at} · 最高分 ${best}`;
-      if (savedRun.completed) document.querySelector("#continue-game").textContent = "重玩第五關";
+      updateContinueCopy();
       openPanel(continuePanel);
     } else if (readLocal("guideSeen") !== true) {
       showGuide();
